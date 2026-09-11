@@ -1,0 +1,128 @@
+/*
+ * Tokens de tema. Paleta sobria, voltada a um console de seguranca.
+ * O tema claro e o padrao em :root; o tema escuro sobrescreve os tokens.
+ */
+
+:root {
+  color-scheme: light;
+
+  --font-sans: "Inter", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "JetBrains Mono", "Cascadia Code", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  --radius-sm: 3px;
+  --radius-md: 5px;
+  --radius-lg: 8px;
+
+  --shadow-sm: 0 1px 2px rgba(15, 23, 35, 0.08);
+  --shadow-md: 0 6px 20px rgba(15, 23, 35, 0.1);
+
+  --bg: #eceff3;
+  --bg-grid: rgba(20, 32, 51, 0.04);
+  --surface: #ffffff;
+  --surface-2: #f4f6f9;
+  --surface-inset: #eef1f5;
+
+  --border: #d5dbe4;
+  --border-strong: #bcc5d2;
+
+  --text: #1a2431;
+  --text-muted: #566072;
+  --text-faint: #8b95a5;
+
+  --accent: #1f4fa8;
+  --accent-hover: #1a4394;
+  --accent-soft: rgba(31, 79, 168, 0.1);
+  --on-accent: #ffffff;
+
+  --danger: #b23b34;
+  --danger-border: rgba(178, 59, 52, 0.35);
+  --danger-soft: rgba(178, 59, 52, 0.08);
+
+  --success: #1f7a4d;
+  --success-border: rgba(31, 122, 77, 0.35);
+  --success-soft: rgba(31, 122, 77, 0.08);
+
+  --info: #1f4fa8;
+  --info-border: rgba(31, 79, 168, 0.3);
+  --info-soft: rgba(31, 79, 168, 0.07);
+
+  --focus-ring: rgba(31, 79, 168, 0.4);
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 10px 30px rgba(0, 0, 0, 0.45);
+
+  --bg: #0b0e13;
+  --bg-grid: rgba(120, 150, 190, 0.05);
+  --surface: #12161d;
+  --surface-2: #171c25;
+  --surface-inset: #0e1219;
+
+  --border: #262d39;
+  --border-strong: #37414f;
+
+  --text: #dde3ec;
+  --text-muted: #8d97a7;
+  --text-faint: #5c6675;
+
+  --accent: #4c82db;
+  --accent-hover: #5f92e6;
+  --accent-soft: rgba(76, 130, 219, 0.14);
+  --on-accent: #0b0e13;
+
+  --danger: #e0665f;
+  --danger-border: rgba(224, 102, 95, 0.4);
+  --danger-soft: rgba(224, 102, 95, 0.12);
+
+  --success: #4fae7e;
+  --success-border: rgba(79, 174, 126, 0.4);
+  --success-soft: rgba(79, 174, 126, 0.12);
+
+  --info: #4c82db;
+  --info-border: rgba(76, 130, 219, 0.4);
+  --info-soft: rgba(76, 130, 219, 0.1);
+
+  --focus-ring: rgba(76, 130, 219, 0.5);
+}
+
+/* Fallback quando o script de tema nao pode executar. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]):not([data-theme="dark"]) {
+    color-scheme: dark;
+
+    --bg: #0b0e13;
+    --bg-grid: rgba(120, 150, 190, 0.05);
+    --surface: #12161d;
+    --surface-2: #171c25;
+    --surface-inset: #0e1219;
+
+    --border: #262d39;
+    --border-strong: #37414f;
+
+    --text: #dde3ec;
+    --text-muted: #8d97a7;
+    --text-faint: #5c6675;
+
+    --accent: #4c82db;
+    --accent-hover: #5f92e6;
+    --accent-soft: rgba(76, 130, 219, 0.14);
+    --on-accent: #0b0e13;
+
+    --danger: #e0665f;
+    --danger-border: rgba(224, 102, 95, 0.4);
+    --danger-soft: rgba(224, 102, 95, 0.12);
+
+    --success: #4fae7e;
+    --success-border: rgba(79, 174, 126, 0.4);
+    --success-soft: rgba(79, 174, 126, 0.12);
+
+    --info: #4c82db;
+    --info-border: rgba(76, 130, 219, 0.4);
+    --info-soft: rgba(76, 130, 219, 0.1);
+
+    --focus-ring: rgba(76, 130, 219, 0.5);
+  }
+}

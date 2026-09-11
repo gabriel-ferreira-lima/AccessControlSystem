@@ -1,0 +1,22 @@
+node_modules
+dist
+dist-ssr
+
+# Ambiente local / segredos — a config vem via build arg no Docker
+.env
+.env.*
+*.local
+
+# Controle de versão e editores
+.git
+.gitignore
+.vscode
+.idea
+
+# Arquivos Docker
+Dockerfile
+.dockerignore
+
+# Logs
+*.log
+npm-debug.log*

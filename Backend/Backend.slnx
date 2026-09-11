@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="AccessControlSystem.Api/AccessControlSystem.Api.csproj" />
+  <Project Path="AccessControlSystem.Application/AccessControlSystem.Application.csproj" />
+  <Project Path="AccessControlSystem.Domain/AccessControlSystem.Domain.csproj" />
+  <Project Path="AccessControlSystem.Infrastructure/AccessControlSystem.Infrastructure.csproj" />
+  <Project Path="AccessControlSystem.Tests/AccessControlSystem.Tests.csproj" />
+</Solution>

@@ -1,0 +1,56 @@
+name: access-control-system
+
+services:
+  db:
+    image: postgres:18
+    container_name: acs-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-accesscontrolsystem}
+    ports:
+      - "${DB_PORT:-5433}:5432"
+    volumes:
+      - db-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-accesscontrolsystem}"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  backend:
+    build:
+      context: ./Backend
+      dockerfile: AccessControlSystem.Api/Dockerfile
+    container_name: acs-backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
+      ASPNETCORE_HTTP_PORTS: "8080"
+      # A API fica atrás do nginx via HTTP — sem redirecionamento HTTPS.
+      HttpsRedirection__Enabled: "false"
+      ConnectionStrings__DefaultConnection: "Host=db;Port=5432;Database=${POSTGRES_DB:-accesscontrolsystem};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-postgres}"
+      # Segredos — vêm do .env (não versionado). Ver .env.example.
+      Secrets__JwtPrivateKey: ${JWT_PRIVATE_KEY:?defina JWT_PRIVATE_KEY no .env}
+      Secrets__PasswordSaltKey: ${PASSWORD_SALT_KEY:?defina PASSWORD_SALT_KEY no .env}
+    ports:
+      - "${BACKEND_PORT:-5290}:8080"
+
+  frontend:
+    build:
+      context: ./Frontend
+      args:
+        VITE_API_BASE_URL: "/"
+    container_name: acs-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "${FRONTEND_PORT:-5173}:80"
+
+volumes:
+  db-data:

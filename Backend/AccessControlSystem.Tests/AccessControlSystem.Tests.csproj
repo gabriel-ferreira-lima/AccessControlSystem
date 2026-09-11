@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <!-- NU1903: SSH.NET vem transitivo do Testcontainers (feature "Docker over SSH", nunca usada aqui). -->
+    <NoWarn>$(NoWarn);NU1903</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" Version="10.0.1">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+    <PackageReference Include="NSubstitute" Version="5.3.0" />
+    <PackageReference Include="Testcontainers.PostgreSql" Version="4.6.0" />
+    <!-- Alinha o EF Core com o resto da solução (Api usa 10.0.12). -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.12" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.12" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+    <Using Include="NSubstitute" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\AccessControlSystem.Domain\AccessControlSystem.Domain.csproj" />
+    <ProjectReference Include="..\AccessControlSystem.Application\AccessControlSystem.Application.csproj" />
+    <ProjectReference Include="..\AccessControlSystem.Infrastructure\AccessControlSystem.Infrastructure.csproj" />
+    <ProjectReference Include="..\AccessControlSystem.Api\AccessControlSystem.Api.csproj" />
+  </ItemGroup>
+
+</Project>

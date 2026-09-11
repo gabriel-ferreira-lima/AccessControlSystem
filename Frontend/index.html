@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="pt-BR" data-theme="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="referrer" content="no-referrer" />
+    <meta name="description" content="Console administrativo do Sistema de Controle de Acesso." />
+    <title>Sistema de Controle de Acesso</title>
+    <script>
+      // Define o tema antes da renderizacao para evitar flash de cor.
+      (function () {
+        try {
+          var stored = window.localStorage.getItem("acs.theme");
+          var prefersDark =
+            window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+          var theme =
+            stored === "light" || stored === "dark" ? stored : prefersDark ? "dark" : "light";
+          document.documentElement.setAttribute("data-theme", theme);
+        } catch (error) {
+          /* localStorage indisponivel: mantem o tema padrao */
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

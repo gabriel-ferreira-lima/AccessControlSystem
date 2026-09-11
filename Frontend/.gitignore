@@ -1,0 +1,28 @@
+# dependencias
+node_modules
+
+# build
+dist
+dist-ssr
+*.local
+
+# ambiente local (segredos / sobrescritas por maquina)
+.env.local
+.env.*.local
+
+# cache de ferramentas
+.vite
+node_modules/.tmp
+
+# editores / SO
+.DS_Store
+.vscode/*
+!.vscode/extensions.json
+.idea
+
+# logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*

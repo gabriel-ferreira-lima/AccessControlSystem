@@ -1,0 +1,18 @@
+# Resultados de build
+**/bin/
+**/obj/
+**/out/
+
+# Visual Studio / Rider / editores
+**/.vs/
+**/.idea/
+**/*.user
+**/*.suo
+
+# Controle de versão
+**/.git/
+**/.gitignore
+
+# Arquivos Docker (não precisam entrar no contexto de build)
+**/Dockerfile
+**/.dockerignore

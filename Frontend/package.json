@@ -1,0 +1,25 @@
+{
+  "name": "accesscontrolsystem-frontend",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Console administrativo do Sistema de Controle de Acesso (cliente de apresentacao, sem logica de negocio).",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -b --noEmit"
+  },
+  "dependencies": {
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "react-router-dom": "^7.1.5"
+  },
+  "devDependencies": {
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "~5.8.3",
+    "vite": "^6.3.5"
+  }
+}
