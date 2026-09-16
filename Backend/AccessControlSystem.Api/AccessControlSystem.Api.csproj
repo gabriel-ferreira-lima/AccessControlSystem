@@ -19,9 +19,9 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UserSecretsId>33a2fe09-6d6a-4e3a-a0a5-e407afcc5009</UserSecretsId>
+	<!-- As duas linhas abaixo servem para documentar meu swagger sobre as APIs criadas-->
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <!-- CS1591: "membro público sem comentário XML" - vamos comentar só o que interessa pro Swagger. -->
-    <NoWarn>$(NoWarn);CS1591</NoWarn>
+    <NoWarn>$(NoWarn);CS1591;CS1573</NoWarn>
   </PropertyGroup>
 
 </Project>

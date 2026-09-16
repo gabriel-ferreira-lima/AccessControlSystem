@@ -8,6 +8,16 @@
     <ProjectReference Include="..\AccessControlSystem.Domain\AccessControlSystem.Domain.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Context\UserContext\Create\Contracts\" />
+    <Folder Include="Context\UserContext\Get\" />
+    <Folder Include="Context\UserContext\GetMe\" />
+    <Folder Include="Context\UserContext\Activate\" />
+    <Folder Include="Context\UserContext\Deactivate\" />
+    <Folder Include="Context\UserContext\UpdateMe\" />
+    <Folder Include="Context\UserContext\Update\" />
+  </ItemGroup>
+
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
