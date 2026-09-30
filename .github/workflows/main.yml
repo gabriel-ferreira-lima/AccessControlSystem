@@ -1,0 +1,39 @@
+name: Backend CI
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'Backend/**'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'Backend/**'
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: Backend
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up .NET Core
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Build with dotnet
+        run: dotnet build Backend.slnx --configuration Release
+
+      - name: Run tests
+        run: dotnet test Backend.slnx --configuration Release --no-build
+
+      - name: Publish package
+        run: dotnet publish AccessControlSystem.Api/AccessControlSystem.Api.csproj --configuration Release
