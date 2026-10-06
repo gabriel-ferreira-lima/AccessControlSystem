@@ -7,6 +7,9 @@ on:
   push:
     branches:
       - 'main'
+    paths:
+      - 'Backend/**'
+      - '.github/workflows/main_first-gbl-server-deploy.yml'
   workflow_dispatch:
 
 jobs:
@@ -24,10 +27,10 @@ jobs:
           dotnet-version: '10.x'
 
       - name: Build with dotnet
-        run: dotnet build --configuration Release
+        run: dotnet build Backend/Backend.slnx --configuration Release
 
       - name: dotnet publish
-        run: dotnet publish -c Release -o ${{env.DOTNET_ROOT}}/myapp
+        run: dotnet publish Backend/AccessControlSystem.Api/AccessControlSystem.Api.csproj -c Release -o ${{env.DOTNET_ROOT}}/myapp
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
