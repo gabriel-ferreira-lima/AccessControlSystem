@@ -5,13 +5,13 @@ on:
     branches:
       - main
     paths:
-      - 'Backend/**'
+      - 'src/Backend/**'
       - '.github/workflows/backend-ci.yml'
   pull_request:
     branches:
       - main
     paths:
-      - 'Backend/**'
+      - 'src/Backend/**'
       - '.github/workflows/backend-ci.yml'
 
 jobs:
@@ -20,7 +20,7 @@ jobs:
 
     defaults:
       run:
-        working-directory: Backend
+        working-directory: src/Backend
 
     steps:
       - name: Checkout repository

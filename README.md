@@ -2,10 +2,10 @@
 
 Monorepo com duas partes:
 
-| Pasta       | Stack                                   | Descrição                                    |
-| ----------- | --------------------------------------- | -------------------------------------------- |
-| `Backend/`  | ASP.NET Core (.NET 10), EF Core, JWT    | API REST + PostgreSQL                        |
-| `Frontend/` | Vite 6 + React 19 + TypeScript          | Console administrativo (SPA de apresentação) |
+| Pasta            | Stack                                   | Descrição                                    |
+| ---------------- | --------------------------------------- | -------------------------------------------- |
+| `src/Backend/`   | ASP.NET Core (.NET 10), EF Core, JWT    | API REST + PostgreSQL                        |
+| `src/Frontend/`  | Vite 6 + React 19 + TypeScript          | Console administrativo (SPA de apresentação) |
 
 ## Rodando com Docker
 
@@ -28,14 +28,14 @@ Abra **http://localhost:5173** — o frontend fala com a API pela mesma origem
 
 ### Como funciona
 
-- **Backend** (`Backend/AccessControlSystem.Api/Dockerfile`): build multi-stage
+- **Backend** (`src/Backend/AccessControlSystem.Api/Dockerfile`): build multi-stage
   (SDK → runtime ASP.NET), roda em HTTP na porta 8080 dentro do container.
   As **migrations são aplicadas no startup** (com novas tentativas enquanto o
   Postgres inicializa). O redirecionamento HTTPS é desligado via
   `HttpsRedirection__Enabled=false`.
-- **Frontend** (`Frontend/Dockerfile`): build multi-stage (Node → nginx). O Vite
+- **Frontend** (`src/Frontend/Dockerfile`): build multi-stage (Node → nginx). O Vite
   é compilado com `VITE_API_BASE_URL=/`, então o `api-client` usa base vazia e
-  as requisições vão para a mesma origem; o nginx (`Frontend/nginx.conf`)
+  as requisições vão para a mesma origem; o nginx (`src/Frontend/nginx.conf`)
   encaminha `/v1/` para o container `backend`.
 - **Postgres**: dados persistidos no volume `db-data`.
 
@@ -79,5 +79,5 @@ no serviço `backend` do `docker-compose.yml` e defina os valores lá (ou via
 
 Cada parte tem o seu próprio README:
 
-- [`Backend/`](Backend/) — requer .NET 10 SDK e um PostgreSQL acessível.
-- [`Frontend/README.md`](Frontend/README.md) — requer Node.js 20+.
+- [`src/Backend/`](src/Backend/) — requer .NET 10 SDK e um PostgreSQL acessível.
+- [`src/Frontend/README.md`](src/Frontend/README.md) — requer Node.js 20+.

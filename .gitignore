@@ -1,5 +1,5 @@
 # Raiz do monorepo — só o que é transversal.
-# Ignores de .NET ficam em Backend/.gitignore; de Node em Frontend/.gitignore.
+# Ignores de .NET ficam em src/Backend/.gitignore; de Node em src/Frontend/.gitignore.
 
 # Segredos do docker compose (vivem aqui, junto do compose). .env.example É versionado.
 .env

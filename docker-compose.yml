@@ -21,7 +21,7 @@ services:
 
   backend:
     build:
-      context: ./Backend
+      context: ./src/Backend
       dockerfile: AccessControlSystem.Api/Dockerfile
     container_name: acs-backend
     restart: unless-stopped
@@ -42,7 +42,7 @@ services:
 
   frontend:
     build:
-      context: ./Frontend
+      context: ./src/Frontend
       args:
         VITE_API_BASE_URL: "/"
     container_name: acs-frontend
