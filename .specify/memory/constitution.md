@@ -568,6 +568,14 @@ código novo; cada um é corrigido por spec própria.
 - Entrega: não existem ambientes de homologação e produção, pipeline de deploy nem
   infraestrutura como código (o workflow do Azure App Service foi removido no commit `6dcb3e0`)
   (viola a seção "Branches, ambientes e entrega").
+- Use cases de escrita do `AccountContext` (`Create`, `Update`, `UpdateMe`, `Activate`,
+  `Deactivate`) e o `Authenticate`: nenhum gera evento de auditoria (viola o Princípio XI). Ao
+  usar um deles como referência, o código novo DEVE incluir a auditoria mesmo assim.
+- Api: sem health checks, sem logs estruturados com `tenantId`/`operatorId`/`correlationId`,
+  sem OpenTelemetry e sem concorrência otimista (`xmin`) no `OperatorMap` (viola a seção
+  Operação).
+- `Domain/Contexts/UserContext`: `User.DateStart`/`DateEnd`, `Cpf.Validity` e `Rg.Validity` usam
+  `DateTime` sem garantir `Kind = Utc` (viola a seção Operação).
 
-**Version**: 1.0.0 | **Ratified**: 2026-10-31 |
+**Version**: 1.0.1 | **Ratified**: 2026-10-31 |
 **Last Amended**: 2026-10-31
