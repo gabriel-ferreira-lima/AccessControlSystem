@@ -46,6 +46,6 @@ describe("servidor de testes da API", () => {
     const response = await fetch(apiUrl("/v1/rota-prevista"));
 
     expect(response.ok).toBe(true);
-    expect(takeUnhandledRequests()).toEqual([]);
+    expect(takeUnhandledRequests()).toEqual(["quebrado de propósito"]);
   });
 });
