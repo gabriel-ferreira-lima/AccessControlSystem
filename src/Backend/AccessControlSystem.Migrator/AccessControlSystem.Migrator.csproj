@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- A Api é referenciada para o Migrator enxergar as migrations (que ficam no assembly da Api). -->
+    <ProjectReference Include="..\AccessControlSystem.Api\AccessControlSystem.Api.csproj" />
+    <ProjectReference Include="..\AccessControlSystem.Infrastructure\AccessControlSystem.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Alinha o EF Core com o resto da solução (a Api usa 10.0.12; o Npgsql EF traz 10.0.4 por
+         transitividade). Os mesmos dois pacotes já alinhados no projeto de testes. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.12" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.12" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+</Project>

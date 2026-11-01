@@ -1,4 +1,5 @@
 using AccessControlSystem.Api.Extensions;
+using AccessControlSystem.Api.Filters;
 using AccessControlSystem.Application.SharedContext.UseCases.Contracts;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -21,6 +22,7 @@ namespace AccessControlSystem.Api.Controllers {
         /// <response code="400">E-mail em formato inválido.</response>
         /// <response code="401">Credenciais inválidas ou conta desativada.</response>
         /// <response code="429">Muitas tentativas de login para este IP.</response>
+        [UseDefaultLoginTenant]
         [EnableRateLimiting("login")]
         [HttpPost("login")]
         public async Task<IActionResult> Login(

@@ -86,17 +86,12 @@ public sealed class PremisePostgresFixture : IAsyncLifetime
         PostgresRoleBootstrap.CreateDatabaseAsync(_superuserConnectionString, name, isCatalog: false);
 
     /// <summary>
-    /// Contexto de migrations (sem tenant e sem interceptors), como o Migrator vai usar. Hoje é o
-    /// <c>AppDbContext</c> atual; a T069 ajusta o construtor quando ele passar a receber tenant.
+    /// Contexto de migrations (sem tenant e sem interceptors), como o Migrator vai usar. Delega ao
+    /// <see cref="MigrationContextFactory"/>, que a T069 ajusta quando o construtor do
+    /// <c>AppDbContext</c> mudar.
     /// </summary>
-    public AppDbContext CreateMigrationContext(string migratorConnectionString)
-    {
-        var options = new DbContextOptionsBuilder<AppDbContext>()
-            .UseNpgsql(migratorConnectionString, npg => npg.MigrationsAssembly("AccessControlSystem.Api"))
-            .Options;
-
-        return new AppDbContext(options);
-    }
+    public AppDbContext CreateMigrationContext(string migratorConnectionString) =>
+        MigrationContextFactory.Create(migratorConnectionString);
 
     /// <summary>Insere linhas direto pelo migrator (BYPASSRLS), sem passar pelo EF nem pelos interceptors.</summary>
     public async Task<List<Guid>> SeedAsync(Guid tenantId, int count, string namePrefix)

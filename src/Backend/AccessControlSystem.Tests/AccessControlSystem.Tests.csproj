@@ -49,6 +49,7 @@
     <ProjectReference Include="..\AccessControlSystem.Application\AccessControlSystem.Application.csproj" />
     <ProjectReference Include="..\AccessControlSystem.Infrastructure\AccessControlSystem.Infrastructure.csproj" />
     <ProjectReference Include="..\AccessControlSystem.Api\AccessControlSystem.Api.csproj" />
+    <ProjectReference Include="..\AccessControlSystem.Migrator\AccessControlSystem.Migrator.csproj" />
   </ItemGroup>
 
 </Project>

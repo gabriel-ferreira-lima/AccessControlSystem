@@ -1,12 +1,14 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using AccessControlSystem.Api.Options;
 using AccessControlSystem.Api.Services.AccountContext;
+using AccessControlSystem.Application.SharedContext.Tenancy;
 using AccessControlSystem.Domain.Contexts.AccountContext.Entities;
 using AccessControlSystem.Domain.Contexts.AccountContext.Enums;
 using AccessControlSystem.Domain.Contexts.AccountContext.ValueObjects;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
-using AppConfiguration = AccessControlSystem.Application.Configuration;
 
 namespace AccessControlSystem.Tests.Api;
 
@@ -14,12 +16,18 @@ public class TokenServiceTests
 {
     private const string TestKey = "chave-de-teste-para-hmac-sha256-com-mais-de-256-bits-aaaaaaaaaaaa";
 
-    private readonly TokenService _service = new();
+    private static readonly Guid TenantId = Guid.Parse("b1b1b1b1-0000-4000-8000-000000000001");
+
+    private readonly ITenantContext _tenant = Substitute.For<ITenantContext>();
+    private readonly TokenService _service;
 
     public TokenServiceTests()
     {
-        // O TokenService lê a chave do Configuration estático da Application.
-        AppConfiguration.Secrets.JwtPrivateKey = TestKey;
+        // A chave vem das opções (SecretsOptions) e o tenant do contexto da requisição.
+        _tenant.IsResolved.Returns(true);
+        _tenant.TenantId.Returns(TenantId);
+
+        _service = new TokenService(Options.Create(new SecretsOptions { JwtPrivateKey = TestKey }), _tenant);
     }
 
     private static Operator NewOperator(ERole role) =>
@@ -63,5 +71,21 @@ public class TokenServiceTests
         var horas = (jwt.ValidTo - DateTime.UtcNow).TotalHours;
 
         Assert.InRange(horas, 7.9, 8.1);
+    }
+
+    [Fact]
+    public void Token_carrega_a_claim_tenant_do_contexto()
+    {
+        var principal = Validate(_service.Generate(NewOperator(ERole.Admin)));
+
+        Assert.Equal(TenantId.ToString(), principal.FindFirstValue("tenant"));
+    }
+
+    [Fact]
+    public void Gerar_token_sem_tenant_resolvido_lanca()
+    {
+        _tenant.IsResolved.Returns(false);
+
+        Assert.Throws<InvalidOperationException>(() => _service.Generate(NewOperator(ERole.Admin)));
     }
 }

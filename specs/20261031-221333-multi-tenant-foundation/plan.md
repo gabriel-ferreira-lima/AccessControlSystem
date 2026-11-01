@@ -45,9 +45,13 @@ ele recebe passa a ser criado por requisição.
 Migrator também em .NET 10.
 
 **Dependências Principais**: ASP.NET Core, EF Core 10.0.12 + Npgsql EF 10.0.3, JwtBearer, Flunt,
-SecureIdentity (Domain). **Nenhum pacote novo em produção previsto**: T081 e T085 conferem se a
-Infrastructure precisa de referências explícitas a `Microsoft.Extensions.*` (para `IOptions` e
-`ValidateOnStart`) e, **se precisar, elas são justificadas aqui** no mesmo trabalho. Em testes:
+SecureIdentity (Domain). **Dois pacotes oficiais novos na Infrastructure** (resultado da conferência de
+T086/T090, ver Complexity Tracking): `Microsoft.Extensions.Options.ConfigurationExtensions` 10.0.12
+(`BindConfiguration`) e `Microsoft.Extensions.Options.DataAnnotations` 10.0.12
+(`ValidateDataAnnotations`); `IOptions` e `ValidateOnStart` já vinham por transitividade. O projeto
+Migrator alinha `Microsoft.EntityFrameworkCore` e `.Relational` em 10.0.12 (os mesmos dois pacotes
+que o projeto de testes já alinha), porque o Npgsql EF traz 10.0.4 por transitividade e a Api
+10.0.12: sem o alinhamento o build avisa de conflito de versão (MSB3277). Em testes:
 `Microsoft.AspNetCore.Mvc.Testing` 10.0.12 (ver Complexity Tracking). **Ferramenta de
 desenvolvimento nova**: `dotnet-ef` 10.0.12 em manifesto local (`.config/dotnet-tools.json`), usada só
 para gerar migrations, fora das imagens de runtime (ver Complexity Tracking). Redis e OpenTelemetry
@@ -102,7 +106,7 @@ Complexity Tracking.*
 | Operação | ⚠️ | ⚠️ legado | `/health/*`, logs com `tenantId` e OpenTelemetry são legado de outras specs. Backup/RPO fica para a spec de ambientes |
 | Quality gates e entrega | ✅ | ✅ | `dotnet build/test` já rodam no CI; Migrator entra na solução e no CI. `dotnet list package --vulnerable` roda localmente antes do PR (o CI atual não tem; o scan de vulnerabilidades no CI é escopo da spec 04, security-hardening) |
 
-**Resultado do gate**: aprovado, com 9 itens em Complexity Tracking.
+**Resultado do gate**: aprovado, com 10 itens em Complexity Tracking.
 
 ## Estrutura do Projeto
 
@@ -332,4 +336,5 @@ antes de qualquer outra, em especial o **P-02** (leituras com RLS). Se alguma fa
 | **Pré-marcar a `SeedAdmin` em `__EFMigrationsHistory` de bases novas** | A migration aplicada não pode ser editada (constituição) e não pode criar operador em bases novas (FR-031). A política só pré-marca quando a base não tem nenhuma migration aplicada, e só afeta bases novas | Editar a migration viola a constituição. Apagar o operador depois de criá-lo deixaria a credencial existindo por instantes e quebraria o `NOT NULL` do `tenant_id` |
 | **Índice único `(tenant_id, email)` criado só na migration, fora do modelo do EF** | O e-mail é um *owned type* em *table splitting*, e o EF não permite índice que misture propriedades do dono e do owned type | Remapear `Email` como *complex type* mudaria o mapeamento do `Operator` e arriscaria todos os testes de repositório. O comportamento é protegido por teste de integração |
 | **Pacote de teste `Microsoft.AspNetCore.Mvc.Testing`** | Testar o `OnTokenValidated`, o filtro de login e os `401`/`403` de verdade exige subir o pipeline da Api (`WebApplicationFactory`) | Testar só classes isoladas não prova a ordem do pipeline nem o envelope de erro. Pacote oficial da Microsoft, mesma versão do ASP.NET |
+| **Pacotes `Microsoft.Extensions.Options.ConfigurationExtensions` e `Microsoft.Extensions.Options.DataAnnotations` 10.0.12 na Infrastructure** (Princípio II) | `AddTenancy` (em Infrastructure, para não espalhar o registro na Api) precisa ligar `CatalogOptions` e `TenantDatabasesOptions` à configuração (`BindConfiguration`) e validar `CatalogOptions` por atributos (`ValidateDataAnnotations`) com `ValidateOnStart`. Nenhum dos dois vem por transitividade do EF/Npgsql | Ler a configuração à mão com `IConfiguration["..."]` e escrever validadores manuais: mais código, mais chance de erro e um mapeamento que a Api faz com o mesmo mecanismo oficial. Os pacotes são da Microsoft, na versão do ASP.NET da solução (10.0.12), sem dependência de terceiros |
 | **Ferramenta local `dotnet-ef` 10.0.12** (manifesto `.config/dotnet-tools.json`) | Gerar as migrations do `AppDbContext` e do `CatalogDbContext` (`dotnet ef migrations add`) de forma reproduzível, na mesma versão do EF Core do projeto | Depender de uma instalação global de cada pessoa gera migrations diferentes por máquina. É ferramenta de desenvolvimento: não entra nas imagens de runtime e não aplica migrations (quem aplica é o Migrator) |

@@ -4,12 +4,14 @@ using AccessControlSystem.Domain.Contexts.AccountContext.ValueObjects;
 using AccessControlSystem.Infrastructure.Context.AccountContext.UseCases.Deactivate;
 using AccessControlSystem.Tests.Infrastructure.Fixtures;
 using Microsoft.EntityFrameworkCore;
+using AccessControlSystem.Tests.Infrastructure.Tenancy;
 
 namespace AccessControlSystem.Tests.Infrastructure.AccountContext.Deactivate;
 
-// A fixture compartilha o mesmo Postgres entre TODAS as classes de integração (inclusive
-// o admin semeado pela migration), então os testes de IsLastActiveAdminAsync medem a
-// contagem real de admins ativos ANTES de agir, em vez de assumir que a tabela está vazia.
+// A fixture compartilha o mesmo Postgres entre TODAS as classes de integração (e vários testes
+// usam o mesmo tenant padrão), então os testes de IsLastActiveAdminAsync medem a contagem real de
+// admins ativos ANTES de agir, em vez de assumir que a tabela está vazia. A base de teste não tem
+// mais o admin semeado pela migration (FR-031), e o isolamento por tenant tem teste próprio.
 [Collection(PostgresCollection.Name)]
 [Trait("Category", "Integration")]
 public class DeactivateRepositoryTests
@@ -110,5 +112,20 @@ public class DeactivateRepositoryTests
         var isLast = await new Repository(context).IsLastActiveAdminAsync(target.Id);
 
         Assert.Equal(activeAdminsBefore == 0, isLast);
+    }
+
+    [Fact]
+    public async Task Isolamento_so_considera_operadores_do_tenant_corrente()
+    {
+        var tenantA = PostgresContainerFixture.NewTenantId();
+        var tenantB = PostgresContainerFixture.NewTenantId();
+        var adminDeA = await _fixture.SeedOperatorAsync(tenantA, role: ERole.Admin);
+        var adminDeB = await _fixture.SeedOperatorAsync(tenantB, role: ERole.Admin);
+
+        await using var context = _fixture.CreateContext(tenantA);
+        var repository = new Repository(context);
+
+        Assert.Null(await repository.GetUserById(adminDeB.Id));
+        Assert.True(await repository.IsLastActiveAdminAsync(adminDeA.Id));   // o admin do tenant B não conta
     }
 }

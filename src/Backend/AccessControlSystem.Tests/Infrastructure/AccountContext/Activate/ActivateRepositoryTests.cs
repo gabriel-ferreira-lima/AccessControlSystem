@@ -3,6 +3,8 @@ using AccessControlSystem.Domain.Contexts.AccountContext.Enums;
 using AccessControlSystem.Domain.Contexts.AccountContext.ValueObjects;
 using AccessControlSystem.Infrastructure.Context.AccountContext.UseCases.Activate;
 using AccessControlSystem.Tests.Infrastructure.Fixtures;
+using AccessControlSystem.Tests.Infrastructure.Tenancy;
+using Microsoft.EntityFrameworkCore;
 
 namespace AccessControlSystem.Tests.Infrastructure.AccountContext.Activate;
 
@@ -62,5 +64,26 @@ public class ActivateRepositoryTests
             var reloaded = await new Repository(verify).GetUserById(op.Id);
             Assert.True(reloaded!.IsActive);
         }
+    }
+
+    [Fact]
+    public async Task Isolamento_nao_le_nem_altera_operador_de_outro_tenant()
+    {
+        var outroTenant = PostgresContainerFixture.NewTenantId();
+        var deOutro = await _fixture.SeedOperatorAsync(outroTenant, isActive: false);
+
+        await using (var context = _fixture.CreateContext())   // tenant padrão da fixture
+        {
+            var repository = new Repository(context);
+
+            Assert.Null(await repository.GetUserById(deOutro.Id));
+
+            // Mesmo com a entidade em mãos, o UPDATE não alcança a linha de outro tenant.
+            deOutro.Activate();
+            await Assert.ThrowsAsync<DbUpdateConcurrencyException>(() => repository.ActivateAsync(deOutro));
+        }
+
+        await using var verify = _fixture.CreateContext(outroTenant);
+        Assert.False((await new Repository(verify).GetUserById(deOutro.Id))!.IsActive);
     }
 }

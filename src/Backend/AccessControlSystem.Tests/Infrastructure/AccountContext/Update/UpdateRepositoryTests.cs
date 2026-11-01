@@ -4,6 +4,7 @@ using AccessControlSystem.Domain.Contexts.AccountContext.Enums;
 using AccessControlSystem.Domain.Contexts.AccountContext.ValueObjects;
 using AccessControlSystem.Infrastructure.Context.AccountContext.UseCases.Update;
 using AccessControlSystem.Tests.Infrastructure.Fixtures;
+using AccessControlSystem.Tests.Infrastructure.Tenancy;
 
 namespace AccessControlSystem.Tests.Infrastructure.AccountContext.Update;
 
@@ -104,5 +105,18 @@ public class UpdateRepositoryTests
         tracked!.UpdateEmail(new Email(other.Email.Address));
 
         await Assert.ThrowsAsync<ConflictException>(() => repository.UpdateAsync(tracked));
+    }
+
+    [Fact]
+    public async Task Isolamento_nao_enxerga_operador_nem_email_de_outro_tenant()
+    {
+        var deOutro = await _fixture.SeedOperatorAsync(PostgresContainerFixture.NewTenantId());
+        var meu = await SeedOperatorAsync(UniqueEmail());
+
+        await using var context = _fixture.CreateContext();   // tenant padrão da fixture
+        var repository = new Repository(context);
+
+        Assert.Null(await repository.GetUserById(deOutro.Id));
+        Assert.False(await repository.CheckIfEmailIsNotUsed(deOutro.Email.Address, meu.Id));   // o e-mail só existe em outro tenant
     }
 }
