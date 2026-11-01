@@ -62,7 +62,7 @@ ao menos um teste falha; depois desfaça com `git checkout -- <arquivo>`. Nada d
 Na raiz do repositório:
 
 ```bash
-git diff --stat main -- src/Frontend/src ':!src/Frontend/src/**/*.test.ts' ':!src/Frontend/src/**/*.test.tsx' ':!src/Frontend/src/test'
+git diff --stat main -- src/Frontend/src ':!src/Frontend/src/*.test.ts' ':!src/Frontend/src/*.test.tsx' ':!src/Frontend/src/**/*.test.ts' ':!src/Frontend/src/**/*.test.tsx' ':!src/Frontend/src/test'
 ```
 
 O `git diff` não mostra arquivos novos não rastreados, então rode também:

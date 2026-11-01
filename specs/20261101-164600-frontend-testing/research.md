@@ -166,14 +166,18 @@ Medidas no protótipo (jsdom 27.4.0):
 
 ## 12. Tempo de execução
 
-- Protótipo com 2 arquivos e 3 testes completos: ~3,7 s no total (~1,6 s de ambiente). A suíte
-  completa (~25 arquivos) deve ficar bem abaixo do limite do SC-001 (2 minutos); a medição real é
-  tarefa de validação.
+- Medição real (Fase D): a suíte completa (26 arquivos, 238 testes) leva de 12 a 14 s em 10 execuções
+  seguidas (Node 24, máquina de desenvolvimento), bem abaixo do limite de 2 minutos do SC-001.
 
 ## Achados de caracterização
 
 Registro de comportamentos que parecem estranhos. **Nenhum é corrigido nesta spec** (FR-015,
-SC-008). A tabela é preenchida durante a implementação; já há candidatos vindos da leitura do código:
+SC-008). **Lista final (fechada na Fase D)**: A-01 a A-06 vinham da leitura do código e foram
+**confirmados por testes** (A-01: `App.test.tsx` e `RequireRole.test.tsx`; A-02 e A-03:
+`EditOperatorPage.test.tsx` e `MyAccountPage.test.tsx`; A-04: todos os testes que afirmam textos de
+interface; A-05: `MyAccountPage.test.tsx`; A-06: `Sidebar.test.tsx` e `RequireRole.test.tsx`).
+A-07 a A-14 apareceram durante a implementação. Nenhum foi corrigido e nenhum foi motivo para
+alterar código de produção (FR-015, SC-007).
 
 | # | Comportamento observado hoje | Onde | Observação |
 |---|---|---|---|
@@ -190,3 +194,4 @@ SC-008). A tabela é preenchida durante a implementação; já há candidatos vi
 | A-11 | Um sucesso HTTP (2xx) com corpo que não é JSON é tratado como sucesso: o `apiRequest` devolve o envelope padrão (`message` vazia, `data` nula). O login então mostra "erro inesperado" (sem `token`) e a lista mostra "Nenhum operador encontrado" | `api-client.ts` | Fixado em `api-client.test.ts`; é um caso que a API real não deve produzir |
 | A-12 | Criar, editar e "Minha conta": uma resposta de sucesso com `data` nula não mostra nada ao operador (nem sucesso, nem erro); o botão volta ao normal e os dados digitados ficam | `CreateOperatorPage.tsx`, `EditOperatorPage.tsx`, `MyAccountPage.tsx` | Fixado em um teste por formulário; a API real devolve `data` nos sucessos |
 | A-13 | Os testes de aborto nas páginas (login e lista) só conseguem observar que o sinal foi abortado na requisição; o efeito visível é nenhum, porque a tela já saiu de vista. A mutação de `isAbortError` só é pega pelo teste do `api-client` | `LoginPage.tsx`, `OperatorsListPage.tsx` | Limitação de observabilidade, não bug |
+| A-14 | O `ThemeProvider` lê `window.matchMedia` com `?.` na leitura inicial do tema, mas chama `window.matchMedia(...)` sem `?.` no efeito que acompanha o sistema; num ambiente sem `matchMedia` (como o jsdom) a segunda chamada quebra | `ThemeContext.tsx` | Sem impacto nos navegadores, que sempre têm `matchMedia`; é o motivo de o `setup.ts` definir um `matchMedia`. Os testes de tema trocam e restauram esse `matchMedia` |
