@@ -205,9 +205,23 @@ aqui (a validação pertence a quem cadastra o tenant).
    mesma conexão da migration (ver R-07). Se existirem linhas e a configuração estiver ausente, as
    linhas ficam `NULL` e a migration seguinte falha no `NOT NULL` com erro claro (falha fechada, não
    atribui linhas a um tenant adivinhado). Em tabela vazia, passa.
-2. `EnforceTenantIsolationOnOperators`: `tenant_id SET NOT NULL`; remove o índice único global
+2. `EnforceTenantIsolationOnOperators`: **repete o mesmo backfill, idempotente** (só as linhas
+   ainda `NULL`; ver "Retomada após falha" abaixo); `tenant_id SET NOT NULL`; remove o índice único global
    `IX_operators_email`; cria `ix_operators_tenant_id_email` (único) e `ix_operators_tenant_id_id`;
    liga `ENABLE` + `FORCE ROW LEVEL SECURITY` e cria a política (R-02).
+
+**Retomada após falha (correção feita na implementação, Princípio XIII).** O desenho original só
+fazia o backfill na 1ª migration. Se a 1ª execução numa base legada fosse feita **sem**
+`InitialTenant`, a `AddTenantIdToOperators` ficava aplicada (linhas legadas em `NULL`), a segunda
+falhava no `NOT NULL` e era desfeita pela transação; uma **2ª execução, já com o tenant inicial**, não
+refazia o backfill (a 1ª migration já estava no histórico) e falhava de novo, só saindo com `UPDATE`
+manual. Constatado por teste (`Depois_de_falhar_sem_tenant_inicial_a_segunda_execucao_com_tenant_conclui_sem_update_manual`).
+Correção: a `EnforceTenantIsolationOnOperators` repete, no início do `Up`, o mesmo
+`UPDATE ... SET tenant_id = NULLIF(current_setting('acs.initial_tenant_id', true), '')::uuid WHERE tenant_id IS NULL`.
+É idempotente (linhas que já têm tenant nunca são tocadas) e mantém a falha fechada (sem a
+configuração o resultado é `NULL`, nada muda, e o `NOT NULL` continua recusando). Só SQL: o
+`Designer` e a `ModelSnapshot` não mudam. As duas migrations ainda não tinham sido aplicadas em
+nenhum ambiente (só em bases de teste), então a edição não viola "migration aplicada não se edita".
 
 **Como gerar com `Designer` correto.** Scaffold em dois passos: primeiro com a propriedade
 sombra `TenantId` opcional (gera a 1ª), depois com `IsRequired`, índice `(TenantId, Id)` e sem o
@@ -261,6 +275,13 @@ ninguém mais está rodando) ou com `schema_version` defasada. As já atualizada
 entra como `Pending` e é atualizada na próxima execução, sem mudar o passo (História 5, cenário 5).
 O `EF Core` já protege cada base de duas execuções concorrentes com a sua própria trava de
 migration; a trava global evita dois orquestradores.
+
+**Conexões do Migrator (constatado na implementação).** O Npgsql cria um *pool* por connection
+string, e cada pool guarda conexões ociosas por 5 minutos. Com uma connection string por base, o
+Migrator deixaria até uma conexão ociosa por base no servidor, e os testes da US5 esgotaram o
+`max_connections` (`53300 too many clients`). Correção na causa: o `EfDatabaseMigrationRunner`
+abre a conexão de cada base com `Pooling=false` (ela vive só durante a atualização daquela base). O
+catálogo continua com pool, porque é a mesma base para todas as operações do `CatalogRegistry`.
 
 **Bundle do EF (`dotnet ef migrations bundle`) vs. em processo.** A diretriz preferia o bundle. A
 decisão é **em processo**, pelos motivos: (a) a política da `SeedAdmin`, a configuração
@@ -379,6 +400,15 @@ fixos (sintéticos, sem validação) e cria, **pelo `AppDbContext` com RLS** (pa
 operadores em cada tenant: o admin `admin@admin.com.br` em todos (e-mail repetido entre tenants,
 FR-035) e um operador comum com o mesmo e-mail em dois tenants, com senhas diferentes. Idempotente
 (consulta antes de criar).
+
+**Ordem no primeiro `up` (esclarecido na implementação).** Num volume novo o catálogo está vazio
+quando o `migrate` roda, então ele não encontra nenhuma base de tenant para atualizar; o `seed-dev`
+é quem cadastra `shared_01` e `dedicated_01`. Se ele só gravasse operadores, as tabelas ainda não
+existiriam. Por isso o `seed-dev`, depois de registrar bases e tenants, **atualiza as bases recém
+cadastradas com o mesmo `MigrationOrchestrator` do `migrate`** (as já em dia são ignoradas) e só
+então cria os operadores. O compose continua rodando `migrate` e depois `seed-dev`; o comando do
+container usa um `entrypoint` de shell que, **sem argumentos**, roda os dois verbos e, **com
+argumento**, roda só aquele verbo (`docker compose run --rm migrator seed-dev`).
 
 **Alternativas descartadas.** Três servidores Postgres (mais pesado sem provar mais); uma só Api
 trocando o tenant padrão por variável (passo manual, derrota SC-008); ferramenta de emissão de

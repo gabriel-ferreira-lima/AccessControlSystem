@@ -133,6 +133,50 @@ public class LegacyDataMigrationTests : ApiTestBase
     }
 
     [Fact]
+    public async Task Depois_de_falhar_sem_tenant_inicial_a_segunda_execucao_com_tenant_conclui_sem_update_manual()
+    {
+        // Princípio XIII: o passo de migrations é retomável. A 1ª execução (sem tenant inicial) falha e
+        // deixa a AddTenantIdToOperators aplicada com as linhas ainda sem tenant; a 2ª, já com o tenant,
+        // precisa concluir sozinha, sem ninguém rodar um UPDATE à mão.
+        var (database, _, _) = await CreateLegacyDatabaseAsync();
+        var initialTenant = Guid.NewGuid();
+        var before = await DatabaseProbe.ReadStringsAsync(database.Migrator, RowSnapshotSql);
+        var runner = new EfDatabaseMigrationRunner();
+
+        var first = await runner.RunAsync(database.Migrator, CancellationToken.None);
+        Assert.False(first.Succeeded);
+        var historyAfterFailure = await DatabaseProbe.ReadHistoryAsync(database.Migrator);
+        Assert.Contains(FirstTenantMigration, historyAfterFailure);       // a 1ª migration nova já ficou aplicada
+        Assert.DoesNotContain(EnforceMigration, historyAfterFailure);     // a 2ª foi desfeita
+
+        var second = await runner.RunAsync(database.Migrator, CancellationToken.None, initialTenant);
+
+        Assert.True(second.Succeeded, second.Error);
+        Assert.Equal(EnforceMigration, second.SchemaVersion);
+        Assert.Equal(before, await DatabaseProbe.ReadStringsAsync(database.Migrator, RowSnapshotSql));
+        Assert.Equal(4L, await DatabaseProbe.CountAsync(
+            database.Migrator, $"select count(*) from operators where tenant_id = '{initialTenant}'"));
+    }
+
+    [Fact]
+    public async Task Repetir_a_adocao_com_o_mesmo_tenant_nao_altera_nada()
+    {
+        var (database, _, _) = await CreateLegacyDatabaseAsync();
+        var initialTenant = Guid.NewGuid();
+        var runner = new EfDatabaseMigrationRunner();
+        await runner.RunAsync(database.Migrator, CancellationToken.None, initialTenant);
+        var snapshot = await DatabaseProbe.ReadStringsAsync(database.Migrator, RowSnapshotSql);
+
+        // Outra execução, até com outro tenant informado, não toca em linhas que já têm dono.
+        var again = await runner.RunAsync(database.Migrator, CancellationToken.None, Guid.NewGuid());
+
+        Assert.True(again.Succeeded, again.Error);
+        Assert.Equal(snapshot, await DatabaseProbe.ReadStringsAsync(database.Migrator, RowSnapshotSql));
+        Assert.Equal(4L, await DatabaseProbe.CountAsync(
+            database.Migrator, $"select count(*) from operators where tenant_id = '{initialTenant}'"));
+    }
+
+    [Fact]
     public async Task Admin_de_seed_legado_e_preservado_no_tenant_inicial()
     {
         var (database, _, _) = await CreateLegacyDatabaseAsync();

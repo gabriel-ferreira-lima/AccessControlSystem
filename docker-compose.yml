@@ -1,4 +1,37 @@
+# AMBIENTE DE DESENVOLVIMENTO. Este compose não serve para homologação nem produção.
+#
+# Sobe: PostgreSQL (catálogo + base compartilhada + base dedicada), o Migrator (passo único que
+# atualiza as bases e cria os dados sintéticos), UMA Api por tenant de teste e o frontend.
+#   backend            5290  tenant A (base compartilhada shared_01)
+#   backend-b          5291  tenant B (base compartilhada shared_01)
+#   backend-dedicated  5292  tenant D (base dedicada dedicated_01)
+# As Apis NÃO aplicam migrations: quem as aplica é o Migrator.
 name: access-control-system
+
+# Configuração comum às três Apis. Cada uma só troca o tenant padrão do login.
+x-backend-environment: &backend-environment
+  ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
+  ASPNETCORE_HTTP_PORTS: "8080"
+  # A API fica atrás do nginx via HTTP — sem redirecionamento HTTPS.
+  HttpsRedirection__Enabled: "false"
+  # Papel da aplicação (acs_app): só leitura no catálogo, sem DDL, sujeito ao RLS nas bases.
+  ConnectionStrings__Catalog: "Host=db;Port=5432;Database=acs_catalog;Username=acs_app;Password=${ACS_APP_PASSWORD:?defina ACS_APP_PASSWORD no .env}"
+  TenantDatabases__shared_01__ConnectionString: "Host=db;Port=5432;Database=acs_shared_01;Username=acs_app;Password=${ACS_APP_PASSWORD}"
+  TenantDatabases__dedicated_01__ConnectionString: "Host=db;Port=5432;Database=acs_dedicated_01;Username=acs_app;Password=${ACS_APP_PASSWORD}"
+  # Segredos — vêm do .env (não versionado). Ver .env.example.
+  Secrets__JwtPrivateKey: ${JWT_PRIVATE_KEY:?defina JWT_PRIVATE_KEY no .env}
+  Secrets__PasswordSaltKey: ${PASSWORD_SALT_KEY:?defina PASSWORD_SALT_KEY no .env}
+
+x-backend: &backend
+  build:
+    context: ./src/Backend
+    dockerfile: AccessControlSystem.Api/Dockerfile
+  restart: unless-stopped
+  depends_on:
+    db:
+      condition: service_healthy
+    migrator:
+      condition: service_completed_successfully
 
 services:
   db:
@@ -6,39 +39,84 @@ services:
     container_name: acs-db
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      POSTGRES_DB: ${POSTGRES_DB:-accesscontrolsystem}
+      # Superusuário: usado só pelos scripts de inicialização. A aplicação nunca o usa.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env}
+      ACS_MIGRATOR_PASSWORD: ${ACS_MIGRATOR_PASSWORD:?defina ACS_MIGRATOR_PASSWORD no .env}
+      ACS_APP_PASSWORD: ${ACS_APP_PASSWORD:?defina ACS_APP_PASSWORD no .env}
     ports:
       - "${DB_PORT:-5433}:5432"
     volumes:
-      - db-data:/var/lib/postgresql
+      - pg-data:/var/lib/postgresql
+      # Papéis e bancos: criados só quando o volume está vazio.
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+      - ./docker/postgres/sql:/docker/sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-accesscontrolsystem}"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d acs_catalog"]
       interval: 5s
       timeout: 3s
       retries: 12
 
-  backend:
+  # Passo único: atualiza o catálogo e as bases (migrate) e cria os dados de desenvolvimento (seed-dev).
+  # Sem argumentos roda os dois, nessa ordem. Com argumento roda só aquele verbo, por exemplo:
+  #   docker compose run --rm migrator migrate
+  #   docker compose run --rm -e DOTNET_ENVIRONMENT=Production migrator seed-dev   # recusado (código 3)
+  migrator:
     build:
       context: ./src/Backend
-      dockerfile: AccessControlSystem.Api/Dockerfile
-    container_name: acs-backend
-    restart: unless-stopped
+      dockerfile: AccessControlSystem.Migrator/Dockerfile
+    container_name: acs-migrator
+    restart: "no"
     depends_on:
       db:
         condition: service_healthy
+    entrypoint:
+      - /bin/sh
+      - -c
+      - 'if [ "$$#" -eq 0 ]; then dotnet AccessControlSystem.Migrator.dll migrate && dotnet AccessControlSystem.Migrator.dll seed-dev; else dotnet AccessControlSystem.Migrator.dll "$$@"; fi'
+      - migrator
     environment:
-      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
-      ASPNETCORE_HTTP_PORTS: "8080"
-      # A API fica atrás do nginx via HTTP — sem redirecionamento HTTPS.
-      HttpsRedirection__Enabled: "false"
-      ConnectionStrings__DefaultConnection: "Host=db;Port=5432;Database=${POSTGRES_DB:-accesscontrolsystem};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-postgres}"
-      # Segredos — vêm do .env (não versionado). Ver .env.example.
-      Secrets__JwtPrivateKey: ${JWT_PRIVATE_KEY:?defina JWT_PRIVATE_KEY no .env}
-      Secrets__PasswordSaltKey: ${PASSWORD_SALT_KEY:?defina PASSWORD_SALT_KEY no .env}
+      DOTNET_ENVIRONMENT: Development
+      # Papel com DDL (acs_migrator): só o Migrator o recebe.
+      ConnectionStrings__CatalogMigration: "Host=db;Port=5432;Database=acs_catalog;Username=acs_migrator;Password=${ACS_MIGRATOR_PASSWORD:?defina ACS_MIGRATOR_PASSWORD no .env}"
+      TenantDatabases__shared_01__MigrationConnectionString: "Host=db;Port=5432;Database=acs_shared_01;Username=acs_migrator;Password=${ACS_MIGRATOR_PASSWORD}"
+      TenantDatabases__dedicated_01__MigrationConnectionString: "Host=db;Port=5432;Database=acs_dedicated_01;Username=acs_migrator;Password=${ACS_MIGRATOR_PASSWORD}"
+      # O seed-dev grava os operadores pelo papel da aplicação, sob RLS.
+      TenantDatabases__shared_01__ConnectionString: "Host=db;Port=5432;Database=acs_shared_01;Username=acs_app;Password=${ACS_APP_PASSWORD:?defina ACS_APP_PASSWORD no .env}"
+      TenantDatabases__dedicated_01__ConnectionString: "Host=db;Port=5432;Database=acs_dedicated_01;Username=acs_app;Password=${ACS_APP_PASSWORD}"
+      # Senhas dos operadores sintéticos (vêm do .env).
+      DevSeed__AdminPassword: ${DEV_ADMIN_PASSWORD:?defina DEV_ADMIN_PASSWORD no .env}
+      DevSeed__OperatorPasswordTenantA: ${DEV_OPERATOR_PASSWORD_A:?defina DEV_OPERATOR_PASSWORD_A no .env}
+      DevSeed__OperatorPasswordTenantB: ${DEV_OPERATOR_PASSWORD_B:?defina DEV_OPERATOR_PASSWORD_B no .env}
+
+  # Tenant A. O frontend (nginx) aponta para este serviço.
+  backend:
+    <<: *backend
+    container_name: acs-backend
+    environment:
+      <<: *backend-environment
+      Login__DefaultTenantId: "11111111-1111-1111-1111-111111111111"
     ports:
       - "${BACKEND_PORT:-5290}:8080"
+
+  # Tenant B (mesma base compartilhada do A, outro tenant).
+  backend-b:
+    <<: *backend
+    container_name: acs-backend-b
+    environment:
+      <<: *backend-environment
+      Login__DefaultTenantId: "22222222-2222-2222-2222-222222222222"
+    ports:
+      - "${BACKEND_B_PORT:-5291}:8080"
+
+  # Tenant D (base dedicada).
+  backend-dedicated:
+    <<: *backend
+    container_name: acs-backend-dedicated
+    environment:
+      <<: *backend-environment
+      Login__DefaultTenantId: "33333333-3333-3333-3333-333333333333"
+    ports:
+      - "${BACKEND_DEDICATED_PORT:-5292}:8080"
 
   frontend:
     build:
@@ -53,4 +131,4 @@ services:
       - "${FRONTEND_PORT:-5173}:80"
 
 volumes:
-  db-data:
+  pg-data:

@@ -35,7 +35,7 @@ public static partial class PostgresRoleBootstrap
     /// da aplicação (<c>acs_app</c>, sujeita ao RLS) e do migrator (<c>acs_migrator</c>).
     /// </summary>
     public static async Task<DatabaseConnectionStrings> CreateDatabaseAsync(
-        string superuserConnectionString, string databaseName, bool isCatalog)
+        string superuserConnectionString, string databaseName, bool isCatalog, bool temporary = false)
     {
         if (!DatabaseNamePattern().IsMatch(databaseName))
             throw new ArgumentException("Nome de banco de teste inválido.", nameof(databaseName));
@@ -46,24 +46,39 @@ public static partial class PostgresRoleBootstrap
             await ExecuteAsync(connection, $"CREATE DATABASE \"{databaseName}\" OWNER {MigratorRole}");
         }
 
-        // Os privilégios padrão são por banco: precisam rodar conectados ao banco novo.
-        var superuserOnDatabase = ConnectionStringFor(superuserConnectionString, databaseName);
+        // Os privilégios padrão são por banco: precisam rodar conectados ao banco novo. Conexão única,
+        // sem pool: um pool por banco criado deixaria conexões ociosas que esgotam o servidor.
+        var superuserOnDatabase = ConnectionStringFor(superuserConnectionString, databaseName, pooled: false);
         await using (var connection = new NpgsqlConnection(superuserOnDatabase))
         {
             await connection.OpenAsync();
             await ExecuteAsync(connection, ReadEmbeddedSql(isCatalog ? "sql/catalog-db-grants.sql" : "sql/tenant-db-grants.sql"));
         }
 
+        // Banco temporário (um por teste): sem pool nas bases de tenant e com ociosidade curta nos
+        // catálogos (que fazem muitas operações pequenas). O pool padrão do Npgsql guarda conexões
+        // ociosas por 5 minutos, por banco, e com dezenas de bancos esgota o max_connections.
         return new DatabaseConnectionStrings(
             databaseName,
-            ConnectionStringFor(superuserConnectionString, databaseName, AppRole, AppPassword),
-            ConnectionStringFor(superuserConnectionString, databaseName, MigratorRole, MigratorPassword));
+            ConnectionStringFor(superuserConnectionString, databaseName, AppRole, AppPassword, temporary, isCatalog),
+            ConnectionStringFor(superuserConnectionString, databaseName, MigratorRole, MigratorPassword, temporary, isCatalog));
     }
 
     private static string ConnectionStringFor(
-        string baseConnectionString, string database, string? role = null, string? password = null)
+        string baseConnectionString, string database, string? role = null, string? password = null,
+        bool temporary = false, bool isCatalog = false, bool pooled = true)
     {
         var builder = new NpgsqlConnectionStringBuilder(baseConnectionString) { Database = database };
+        if (!pooled || (temporary && !isCatalog))
+        {
+            builder.Pooling = false;
+        }
+        else if (temporary)
+        {
+            builder.ConnectionIdleLifetime = 1;
+            builder.ConnectionPruningInterval = 1;
+        }
+
         if (role is not null)
         {
             builder.Username = role;

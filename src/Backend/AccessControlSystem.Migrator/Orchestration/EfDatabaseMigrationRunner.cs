@@ -13,8 +13,6 @@ namespace AccessControlSystem.Migrator.Orchestration {
     /// </summary>
     public class EfDatabaseMigrationRunner : IDatabaseMigrationRunner {
 
-        private const int MaxErrorLength = 1000;
-
         public async Task<MigrationRunResult> RunAsync(
             string migrationConnectionString,
             CancellationToken cancellationToken,
@@ -26,8 +24,12 @@ namespace AccessControlSystem.Migrator.Orchestration {
                     throw new ArgumentException("O tenant inicial não pode ser vazio.", nameof(initialTenantId));
                 }
 
+                // Sem pool: a conexão vive só durante a atualização desta base. Com N bases, um pool por
+                // base deixaria N conexões ociosas no servidor até o Npgsql podá-las (5 minutos).
+                var connectionString = new NpgsqlConnectionStringBuilder(migrationConnectionString) { Pooling = false }.ConnectionString;
+
                 var options = new DbContextOptionsBuilder<AppDbContext>()
-                    .UseNpgsql(migrationConnectionString, npgsql => npgsql.MigrationsAssembly("AccessControlSystem.Api"))
+                    .UseNpgsql(connectionString, npgsql => npgsql.MigrationsAssembly("AccessControlSystem.Api"))
                     .Options;
 
                 await using var context = new AppDbContext(options, new NoTenantContext());
@@ -53,28 +55,9 @@ namespace AccessControlSystem.Migrator.Orchestration {
                 return new MigrationRunResult(true, applied.LastOrDefault(), null);
             }
             catch (Exception exception) when (exception is not OperationCanceledException) {
-                return new MigrationRunResult(false, null, Sanitize(exception, migrationConnectionString));
+                // O motivo vai para o catálogo e para o log: nunca pode conter connection string nem senha.
+                return new MigrationRunResult(false, null, ErrorSanitizer.FromException(exception, migrationConnectionString));
             }
-        }
-
-        // O motivo da falha vai para o catálogo e para o log: nunca pode conter connection string
-        // nem senha.
-        private static string Sanitize(Exception exception, string connectionString) {
-            var message = $"{exception.GetType().Name}: {exception.Message}";
-
-            message = message.Replace(connectionString, "[connection string omitida]", StringComparison.Ordinal);
-
-            try {
-                var password = new NpgsqlConnectionStringBuilder(connectionString).Password;
-                if (!string.IsNullOrEmpty(password)) {
-                    message = message.Replace(password, "***", StringComparison.Ordinal);
-                }
-            }
-            catch (ArgumentException) {
-                // connection string malformada: já foi removida inteira acima
-            }
-
-            return message.Length <= MaxErrorLength ? message : message[..MaxErrorLength];
         }
     }
 }

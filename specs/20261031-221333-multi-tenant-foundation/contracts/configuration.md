@@ -39,7 +39,8 @@ própria): `Secrets:PasswordSaltKey`.
 Se `InitialTenant` não estiver configurado, o `migrate` não registra tenant inicial e as bases
 precisam já estar cadastradas no catálogo. Se uma base com linhas legadas for migrada **sem**
 `InitialTenant`, a migration `EnforceTenantIsolationOnOperators` falha no `NOT NULL` (comportamento
-desejado, R-06).
+desejado, R-06). Depois dessa falha, rodar o `migrate` de novo **com** `InitialTenant` conclui a adoção sozinho (o
+backfill é repetido, idempotente), sem `UPDATE` manual.
 
 ## Design-time (`dotnet ef migrations add`)
 

@@ -270,6 +270,26 @@ public class ApiContractCompatTests : ApiTestBase
     }
 
     [Fact]
+    public async Task Swagger_continua_gerando_o_documento_com_os_8_endpoints()
+    {
+        // Os comentários XML dos endpoints alimentam o Swagger; o contrato HTTP (e o api.ts) não muda.
+        var response = await GetAsync("swagger/v1/swagger.json");
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(200, (int)response.StatusCode);
+        foreach (var path in new[]
+        {
+            "/v1/account/login", "/v1/account/create", "/v1/account/get-me", "/v1/account/get-list",
+            "/v1/account/update-me", "/v1/account/update/{id}", "/v1/account/activate/{id}", "/v1/account/deactivate/{id}"
+        })
+        {
+            Assert.Contains($"\"{path}\"", body);
+        }
+
+        Assert.Contains("Já existe conta cadastrada com esse e-mail neste tenant.", body);
+    }
+
+    [Fact]
     public void O_contrato_cobre_os_8_endpoints_de_account()
     {
         var covered = CaseNameList.Select(n => n.Split(':')[0]).ToHashSet();

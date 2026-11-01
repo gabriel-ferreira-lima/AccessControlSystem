@@ -22,5 +22,15 @@ namespace AccessControlSystem.Migrator.Options {
         public string DatabaseName { get; set; } = string.Empty;
 
         public EDatabaseKind DatabaseKind { get; set; } = EDatabaseKind.Shared;
+
+        /// <summary>
+        /// Há alguma configuração de tenant inicial? Configuração pela metade conta como configurada e
+        /// é recusada na hora de registrar (melhor falhar do que ignorar em silêncio).
+        /// </summary>
+        public bool IsConfigured =>
+            Id != Guid.Empty
+            || !string.IsNullOrWhiteSpace(Cnpj)
+            || !string.IsNullOrWhiteSpace(Name)
+            || !string.IsNullOrWhiteSpace(DatabaseName);
     }
 }

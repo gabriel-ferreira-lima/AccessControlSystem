@@ -7,7 +7,7 @@
 | Nome | Quem define | Escopo | Uso |
 |---|---|---|---|
 | `app.tenant_id` | Api, via `set_config('app.tenant_id', @tenant, true)` | **transação/lote** (nunca sessão) | lido pela política de RLS |
-| `acs.initial_tenant_id` | Migrator, via `set_config(..., false)` na conexão do migrator | sessão do migrator (sem pooler) | usada só pelo backfill da migration `AddTenantIdToOperators` |
+| `acs.initial_tenant_id` | Migrator, via `set_config(..., false)` na conexão do migrator | sessão do migrator (sem pooler) | usada só pelo backfill das migrations `AddTenantIdToOperators` e `EnforceTenantIsolationOnOperators` (esta repete o backfill para a execução poder ser retomada, R-06) |
 
 O valor sempre vai por **parâmetro**, nunca concatenado ao SQL.
 

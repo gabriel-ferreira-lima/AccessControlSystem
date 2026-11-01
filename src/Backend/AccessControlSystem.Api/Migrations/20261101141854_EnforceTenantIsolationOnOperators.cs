@@ -17,6 +17,19 @@ namespace AccessControlSystem.Api.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            // RETOMADA: repete o backfill da migration anterior, só nas linhas ainda sem tenant. Se a 1ª
+            // execução foi feita sem o tenant inicial, a AddTenantIdToOperators ficou aplicada (com as
+            // linhas legadas em NULL) e esta migration, desfeita pela falha abaixo; na 2ª execução, já
+            // com acs.initial_tenant_id, o passo conclui sozinho, sem UPDATE manual (Princípio XIII).
+            // Idempotente: linhas que já têm tenant nunca são tocadas. Sem a configuração o resultado é
+            // NULL e nada muda, então a falha fechada abaixo continua valendo.
+            migrationBuilder.Sql(
+                """
+                UPDATE operators
+                   SET tenant_id = NULLIF(current_setting('acs.initial_tenant_id', true), '')::uuid
+                 WHERE tenant_id IS NULL;
+                """);
+
             // CONTRAIR: o tenant passa a ser obrigatório. SEM defaultValue de propósito: linhas legadas
             // sem tenant (base adotada sem o tenant inicial configurado) fazem esta migration FALHAR
             // aqui, em vez de serem atribuídas a um tenant adivinhado. A transação desfaz tudo.

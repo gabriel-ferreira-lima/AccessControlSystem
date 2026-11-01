@@ -156,20 +156,42 @@ public sealed class PostgresContainerFixture : IAsyncLifetime
     /// migrations. Devolve as connection strings da aplicação (RLS) e do migrator.
     /// </summary>
     public Task<DatabaseConnectionStrings> CreateEmptyDatabaseAsync(string name) =>
-        PostgresRoleBootstrap.CreateDatabaseAsync(_superuserConnectionString, name, isCatalog: false);
+        PostgresRoleBootstrap.CreateDatabaseAsync(_superuserConnectionString, name, isCatalog: false, temporary: true);
 
     /// <summary>Contexto de migrations (sem tenant) para uma connection string de migrator.</summary>
     public AppDbContext CreateMigrationContext(string migratorConnectionString) =>
         MigrationContextFactory.Create(migratorConnectionString);
 
     /// <summary>Contexto do catálogo como migrator (escrita) ou como aplicação (somente leitura).</summary>
-    public CatalogDbContext CreateCatalogContext(bool asMigrator)
-    {
-        var options = new DbContextOptionsBuilder<CatalogDbContext>()
-            .UseNpgsql(asMigrator ? _catalog.Migrator : _catalog.App, npg => npg.MigrationsAssembly("AccessControlSystem.Api"))
+    public CatalogDbContext CreateCatalogContext(bool asMigrator) =>
+        CreateCatalogContext(asMigrator ? _catalog.Migrator : _catalog.App);
+
+    /// <summary>Contexto de um banco de catálogo qualquer, pela connection string.</summary>
+    public CatalogDbContext CreateCatalogContext(string connectionString) =>
+        new(CatalogOptions(connectionString));
+
+    /// <summary>Opções do <see cref="CatalogDbContext"/> para uma connection string (para quem cria contextos por conta própria).</summary>
+    public static DbContextOptions<CatalogDbContext> CatalogOptions(string connectionString) =>
+        new DbContextOptionsBuilder<CatalogDbContext>()
+            .UseNpgsql(connectionString, npg => npg.MigrationsAssembly("AccessControlSystem.Api"))
             .Options;
 
-        return new CatalogDbContext(options);
+    /// <summary>
+    /// Catálogo novo e isolado (banco próprio, privilégios de catálogo), para testes que contam ou
+    /// listam as bases cadastradas: o catálogo da fixture é compartilhado entre todos os testes.
+    /// </summary>
+    public async Task<DatabaseConnectionStrings> CreateIsolatedCatalogAsync(bool migrate = true)
+    {
+        var catalog = await PostgresRoleBootstrap.CreateDatabaseAsync(
+            _superuserConnectionString, $"cat_{Guid.NewGuid():N}", isCatalog: true, temporary: true);
+
+        if (migrate)
+        {
+            await using var context = CreateCatalogContext(catalog.Migrator);
+            await context.Database.MigrateAsync();
+        }
+
+        return catalog;
     }
 
     #endregion

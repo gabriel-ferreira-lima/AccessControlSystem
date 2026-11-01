@@ -39,8 +39,13 @@ catálogo é atualizada sem mudar o comando; nenhuma etapa cria operador (FR-026
 - Registra no catálogo as bases `shared_01` e `dedicated_01` e os três tenants de
   [data-model.md](../data-model.md) (seção 5); cria os operadores sintéticos em cada tenant
   **pelo `AppDbContext`, sob RLS**, com o papel `acs_app`.
+- Depois de registrar, **atualiza as bases recém cadastradas** (mesmo orquestrador do `migrate`; as
+  que já estão em dia são ignoradas) e só então cria os operadores: num volume novo o `migrate`
+  encontrou o catálogo vazio, então estas bases ainda não têm tabelas. Se alguma base falhar, sai
+  com código `1` sem criar operadores.
 - Idempotente: reexecutar não duplica tenants, bases nem operadores.
-- No compose roda depois do `migrate`, no mesmo container one-shot.
+- No compose roda depois do `migrate`, no mesmo container one-shot (sem argumentos o container roda
+  os dois verbos; com argumento, só aquele).
 
 ## Códigos de saída
 
