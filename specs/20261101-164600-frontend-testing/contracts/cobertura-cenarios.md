@@ -12,10 +12,10 @@ código testado (`*.test.ts` / `*.test.tsx`); `App.test.tsx` usa o `App` real.
 |---|---|
 | coberto | Há teste automatizado que exercita o cenário pela interface, como o operador o veria |
 | coberto parcialmente — ver A-0X | Parte do cenário não é alcançável ou observável pela interface; o que falta está descrito no achado indicado em [research.md](../research.md) |
-| pendente de validação no PR | Depende de executar o CI no GitHub; não há teste automatizado local (roteiro V6 do [quickstart.md](../quickstart.md)) |
+| validado no PR | Depende de executar o CI no GitHub; não há teste automatizado local. Validado pelo revisor em 2026-11-01 com o roteiro V6 do [quickstart.md](../quickstart.md) |
 
-**Resumo dos 49 cenários**: 43 cobertos · 3 cobertos parcialmente (1.1, 3.8, 7.5) · 3 pendentes de
-validação no PR (1.3, 1.4, 1.5).
+**Resumo dos 49 cenários**: 44 cobertos · 2 cobertos parcialmente (3.8, 7.5) · 3 validados no PR
+(1.3, 1.4, 1.5).
 
 Os títulos de `describe`/`it` levam acentuação correta; só os textos de interface afirmados nos
 testes (ex.: `Pagina nao encontrada`) ficam sem acento, como estão hoje.
@@ -24,11 +24,11 @@ testes (ex.: `Pagina nao encontrada`) ficam sem acento, como estão hoje.
 
 | Cenário | Arquivo | Título do teste / verificação | Situação |
 |---|---|---|---|
-| 1.1 Roda sem API, banco, Docker ou internet | `test/server.test.ts` e execução de `npm test` | "não deixa a chamada sem handler sair para a rede" | coberto parcialmente — a ausência de rede real é garantida e testada pela trava; a execução **offline** é feita pelo revisor e não foi feita pelo implementador |
+| 1.1 Roda sem API, banco, Docker ou internet | `test/server.test.ts` e execução de `npm test` | "não deixa a chamada sem handler sair para a rede" | coberto — a ausência de rede real é garantida e testada pela trava; a execução **offline** foi feita pelo revisor em 2026-11-01 (26 arquivos, 238 testes passando, sem internet) |
 | 1.2 Chamada não prevista reprova o teste | `test/server.test.ts` (+ `afterEach` do `test/setup.ts`) | "registra a chamada que não tem handler"; "não registra chamadas que têm handler" | coberto |
-| 1.3 CI roda tipos, testes e build em PR do front | `.github/workflows/frontend-ci.yml` | passos 4 a 6 do contrato do CI | pendente de validação no PR |
-| 1.4 CI não roda sem mudança no front | `.github/workflows/frontend-ci.yml` | filtro de `paths` | pendente de validação no PR |
-| 1.5 Falha de teste reprova o PR | `.github/workflows/frontend-ci.yml` | PR de teste com um `it` quebrado de propósito | pendente de validação no PR |
+| 1.3 CI roda tipos, testes e build em PR do front | `.github/workflows/frontend-ci.yml` | passos 4 a 6 do contrato do CI | validado no PR — PR #6: Node 22, typecheck, 26 arquivos de teste e build, verde |
+| 1.4 CI não roda sem mudança no front | `.github/workflows/frontend-ci.yml` | filtro de `paths` | validado no PR — PR #7 (só arquivo na raiz): nenhuma verificação do front executada; fechado sem merge |
+| 1.5 Falha de teste reprova o PR | `.github/workflows/frontend-ci.yml` | PR de teste com um `it` quebrado de propósito | validado no PR — PR #8: CI vermelho em `Run tests`, apontando "não registra chamadas que têm handler" e a asserção; fechado sem merge |
 
 ## História 2 — Login e sessão
 
