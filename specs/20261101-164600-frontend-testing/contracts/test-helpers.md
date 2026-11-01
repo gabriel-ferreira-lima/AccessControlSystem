@@ -35,7 +35,7 @@ Resultado que uma fábrica de handler pode produzir, e o tipo que as descreve:
 Outcome<T> =
   | { kind: "success"; data: T; message?: string; status?: number }     // padrão: 200, message "OK"
   | { kind: "failure"; status: number; message: string; notifications?: ApiNotification[] }
-  | { kind: "failure-with-ok-status"; message: string; notifications?: ApiNotification[] }  // HTTP 200, isSuccess false
+  | { kind: "failure-with-ok-status"; message: string; notifications?: ApiNotification[]; status?: number }  // HTTP 200, isSuccess false; `status` é o do envelope (padrão 400)
   | { kind: "raw"; status: number; body: string }                       // fora do envelope (vazio ou não JSON)
   | { kind: "network-error" }
 ```
