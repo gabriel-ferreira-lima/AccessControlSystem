@@ -4,10 +4,14 @@ import { afterAll, afterEach, beforeAll } from "vitest";
 import { recordUnhandledRequest, server, takeUnhandledRequests } from "./server";
 
 // Servidor MSW: qualquer chamada sem handler é registrada e reprova o teste no afterEach.
+// Com `onUnhandledRequest` em forma de função, o MSW deixa a requisição seguir para a REDE REAL
+// se a função não lançar (e `print.error()` também não a impede, medido neste ambiente). Lançar um
+// Error próprio faz o MSW responder uma resposta 500 sintética, sem sair da máquina.
 beforeAll(() => {
   server.listen({
     onUnhandledRequest(request) {
       recordUnhandledRequest(request);
+      throw new Error(`Chamada de API não prevista no teste: ${request.method} ${request.url}`);
     },
   });
 });

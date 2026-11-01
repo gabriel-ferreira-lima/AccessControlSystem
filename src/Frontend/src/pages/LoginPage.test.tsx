@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import { http } from "msw";
 import { describe, expect, it, vi } from "vitest";
 import { loginHandler } from "../test/handlers";
@@ -142,5 +142,83 @@ describe("LoginPage", () => {
     expect(screen.getByRole("button", { name: "Entrar" })).toBeEnabled();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(screen.queryByText(EXPIRED_NOTICE)).not.toBeInTheDocument();
+  });
+});
+
+describe("LoginPage: falhas de comunicação", () => {
+  it("mostra a mensagem de falha de comunicação quando o servidor está inacessível", async () => {
+    server.use(loginHandler({ kind: "network-error" }));
+    const { user } = renderLogin();
+
+    await fillAndSubmit(user);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Nao foi possivel se comunicar com o servidor. Verifique a conexao e tente novamente.",
+    );
+    expect(window.sessionStorage.getItem("acs.session")).toBeNull();
+  });
+
+  it("mostra a mensagem genérica de erro inesperado quando a resposta de erro vem fora do envelope", async () => {
+    server.use(loginHandler({ kind: "raw", status: 502, body: "<html>Bad Gateway</html>" }));
+    const { user } = renderLogin();
+
+    await fillAndSubmit(user);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Ocorreu um erro inesperado. Tente novamente em instantes.",
+    );
+  });
+
+  it("mostra a message e as notifications do envelope quando o HTTP é de sucesso mas o envelope marca falha", async () => {
+    server.use(
+      loginHandler({
+        kind: "failure-with-ok-status",
+        message: "Credenciais inválidas",
+        notifications: [buildNotification("Email", "E-mail ou senha incorretos")],
+      }),
+    );
+    const { user } = renderLogin();
+
+    await fillAndSubmit(user);
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("Credenciais inválidas");
+    expect(alert).toHaveTextContent("E-mail ou senha incorretos");
+  });
+
+  it("não derruba sessão nem mostra o aviso de sessão encerrada quando o login recebe 401", async () => {
+    server.use(loginHandler({ kind: "failure", status: 401, message: "Credenciais inválidas" }));
+    const { user } = renderLogin();
+
+    await fillAndSubmit(user);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Credenciais inválidas");
+    expect(screen.queryByText(EXPIRED_NOTICE)).not.toBeInTheDocument();
+  });
+
+  it("aborta a chamada e não mostra erro quando a tela sai de vista com o envio em andamento", async () => {
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let aborted = false;
+    server.use(
+      http.post(apiUrl("/v1/account/login"), async ({ request }) => {
+        request.signal.addEventListener("abort", () => {
+          aborted = true;
+        });
+        await gate;
+        return toResponse({ kind: "success", data: buildSession({ role: "Admin" }) });
+      }),
+    );
+    const { user, unmount } = renderLogin();
+    await fillAndSubmit(user);
+    await screen.findByRole("button", { name: "Autenticando..." });
+
+    unmount();
+
+    await waitFor(() => expect(aborted).toBe(true));
+    release();
+    expect(window.sessionStorage.getItem("acs.session")).toBeNull();
   });
 });

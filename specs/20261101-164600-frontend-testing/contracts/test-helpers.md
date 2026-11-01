@@ -15,7 +15,7 @@ arquivos `*.test.*`).
 |---|---|
 | Matchers de DOM | `@testing-library/jest-dom/vitest` registrado (`toBeInTheDocument`, `toHaveTextContent`…) |
 | Servidor MSW | `server.listen()` antes de tudo; `server.resetHandlers()` depois de cada teste; `server.close()` no fim |
-| Chamada não prevista | Toda requisição sem handler é registrada; o `afterEach` **reprova o teste** com `Chamada de API não prevista no teste: MÉTODO URL` |
+| Chamada não prevista | Toda requisição sem handler é registrada e **recusada pela simulação** (o callback lança, e o MSW responde uma 500 sintética; sem isso a chamada seguiria para a rede real); o `afterEach` **reprova o teste** com `Chamada de API não prevista no teste: MÉTODO URL` |
 | Limpeza | `cleanup()` do Testing Library e esvaziamento de `sessionStorage` e `localStorage` depois de cada teste |
 | Lacunas do jsdom | `<dialog>.showModal/close`, `window.matchMedia` e o `DOMException` global alinhado ao do Node (ver [research.md](../research.md), item 3) |
 

@@ -506,3 +506,77 @@ describe("OperatorsListPage: casos limite", () => {
     await waitFor(() => expect(onLoad).toHaveBeenCalledTimes(2));
   });
 });
+
+describe("OperatorsListPage: falhas de comunicação", () => {
+  it("mostra a mensagem de falha de comunicação no lugar da tabela quando o servidor está inacessível", async () => {
+    server.use(listOperatorsHandler({ kind: "network-error" }));
+    renderList();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Nao foi possivel se comunicar com o servidor. Verifique a conexao e tente novamente.",
+    );
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+  });
+
+  it("mostra a mensagem genérica de erro inesperado quando a resposta de erro vem fora do envelope", async () => {
+    server.use(listOperatorsHandler({ kind: "raw", status: 500, body: "" }));
+    renderList();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Ocorreu um erro inesperado. Tente novamente em instantes.",
+    );
+  });
+
+  it("não encerra a sessão e mostra message e notifications da api quando a carga recebe 403", async () => {
+    server.use(
+      listOperatorsHandler({
+        kind: "failure",
+        status: 403,
+        message: "Acesso negado",
+        notifications: [buildNotification("Permissao", "Seu perfil não pode listar operadores")],
+      }),
+    );
+    renderList();
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("Acesso negado");
+    expect(alert).toHaveTextContent("Seu perfil não pode listar operadores");
+    expect(JSON.parse(window.sessionStorage.getItem("acs.session") ?? "null")).toMatchObject({
+      token: adminSession.token,
+    });
+  });
+
+  it("apaga a sessão guardada quando a carga recebe 401", async () => {
+    server.use(
+      listOperatorsHandler({ kind: "failure", status: 401, message: "Não autorizado" }),
+    );
+    renderList();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Não autorizado");
+    await waitFor(() => expect(window.sessionStorage.getItem("acs.session")).toBeNull());
+  });
+
+  it("aborta a chamada da lista quando a tela sai de vista com a carga em andamento", async () => {
+    const gate = createGate();
+    let started = false;
+    let aborted = false;
+    server.use(
+      http.get(apiUrl("/v1/account/get-list"), async ({ request }) => {
+        started = true;
+        request.signal.addEventListener("abort", () => {
+          aborted = true;
+        });
+        await gate.promise;
+        return toResponse({ kind: "success", data: buildOperatorList([]) });
+      }),
+    );
+    const { unmount } = renderList();
+    // Só desmonta depois que a requisição chegou ao servidor simulado e está em andamento.
+    await waitFor(() => expect(started).toBe(true));
+
+    unmount();
+
+    await waitFor(() => expect(aborted).toBe(true));
+    gate.release();
+  });
+});

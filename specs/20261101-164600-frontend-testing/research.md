@@ -67,10 +67,20 @@ Medidas no protótipo (jsdom 27.4.0):
   com falha de rede**. Se o código engolir a falha (por exemplo, mostrando "Não foi possível se
   comunicar..."), o teste pode passar sem que ninguém perceba. Isso descumpriria o FR-002
   ("DEVEM falhar quando o código fizer uma chamada não prevista").
-- **Decisão**: usar `onUnhandledRequest` como função que **registra** `MÉTODO URL` numa lista; o
-  `afterEach` do `setup.ts` lança `Error("Chamada de API não prevista no teste: ...")` se a lista não
-  estiver vazia. Validado no protótipo: o teste que chama uma rota sem handler falha com a URL
-  apontada. Isso cumpre a intenção da diretriz (`"error"`) de forma garantida.
+- **Decisão**: usar `onUnhandledRequest` como função que **registra** `MÉTODO URL` numa lista **e
+  lança um `Error`**; o `afterEach` do `setup.ts` lança `Error("Chamada de API não prevista no
+  teste: ...")` se a lista não estiver vazia. Isso cumpre a intenção da diretriz (`"error"`) de forma
+  garantida.
+- **Correção (Fase C)**: a versão inicial só registrava a chamada, sem lançar. No MSW, um
+  `onUnhandledRequest` em forma de função que não lança deixa a requisição **seguir para a rede real**
+  (medido com um servidor HTTP local de verdade: ele recebeu a chamada e respondeu 200). Além de
+  contrariar o SC-004, isso causou uma falha intermitente em `server.test.ts` (1 em 4 execuções
+  completas: a chamada ia a `api.test` pela rede). Também foi medido que `print.error()` **não**
+  impede a passagem neste ambiente, enquanto lançar um `Error` próprio faz o MSW responder uma
+  resposta 500 sintética ("Unhandled Exception"), sem sair da máquina. O teste
+  `não deixa a chamada sem handler sair para a rede` (servidor local real, `received === 0`) protege
+  a regra; foi escrito primeiro e falhou (Red) antes da correção. Depois: 6 execuções sequenciais e 9
+  concorrentes da suíte completa, sem falhas.
 - **Alternativa rejeitada**: `onUnhandledRequest: "error"` puro (não reprova o teste quando o erro é
   tratado pela tela).
 
@@ -177,3 +187,6 @@ SC-008). A tabela é preenchida durante a implementação; já há candidatos vi
 | A-08 | "Troca rápida de filtro/página com chamadas em andamento" não é alcançável pela interface: `Mostrar`, `Atualizar`, `Itens por pagina`, `Anterior` e `Proxima` ficam desabilitados enquanto a lista carrega. A proteção contra resposta antiga (`active`/`AbortController`) existe no código, mas nenhuma ação do operador a exercita | `OperatorsListPage.tsx` | O teste afirma os controles desabilitados durante a carga (inicial e recarga). A resposta antiga ignorada só seria testável alterando a tela, o que está fora desta spec |
 | A-09 | Primeira carga da lista que volta com sucesso e `data` nulo mostra "Nenhum operador encontrado para este filtro." (não fica em "Carregando..." nem mostra erro). Já uma recarga com `data` nulo mantém a tabela anterior | `OperatorsListPage.tsx` | Fixado em dois testes; é um caso que a API real não deve produzir |
 | A-10 | No jsdom o `<dialog>` não tem `showModal`/`close`, foco preso nem Esc nativo; o `setup.ts` simula `showModal`/`close` e os testes disparam o evento `cancel` | `ConfirmDialog.tsx` | Limitação do ambiente de teste: o comportamento nativo do navegador (foco preso, `::backdrop`) não é coberto por esta suíte |
+| A-11 | Um sucesso HTTP (2xx) com corpo que não é JSON é tratado como sucesso: o `apiRequest` devolve o envelope padrão (`message` vazia, `data` nula). O login então mostra "erro inesperado" (sem `token`) e a lista mostra "Nenhum operador encontrado" | `api-client.ts` | Fixado em `api-client.test.ts`; é um caso que a API real não deve produzir |
+| A-12 | Criar, editar e "Minha conta": uma resposta de sucesso com `data` nula não mostra nada ao operador (nem sucesso, nem erro); o botão volta ao normal e os dados digitados ficam | `CreateOperatorPage.tsx`, `EditOperatorPage.tsx`, `MyAccountPage.tsx` | Fixado em um teste por formulário; a API real devolve `data` nos sucessos |
+| A-13 | Os testes de aborto nas páginas (login e lista) só conseguem observar que o sinal foi abortado na requisição; o efeito visível é nenhum, porque a tela já saiu de vista. A mutação de `isAbortError` só é pega pelo teste do `api-client` | `LoginPage.tsx`, `OperatorsListPage.tsx` | Limitação de observabilidade, não bug |
