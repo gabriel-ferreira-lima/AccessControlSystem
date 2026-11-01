@@ -17,7 +17,7 @@ namespace AccessControlSystem.Api.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.11")
+                .HasAnnotation("ProductVersion", "10.0.12")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -38,7 +38,14 @@ namespace AccessControlSystem.Api.Migrations
                         .HasColumnType("SMALLINT")
                         .HasColumnName("role");
 
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "Id")
+                        .HasDatabaseName("ix_operators_tenant_id_id");
 
                     b.ToTable("operators", (string)null);
                 });
@@ -56,9 +63,6 @@ namespace AccessControlSystem.Api.Migrations
                                 .HasColumnName("email");
 
                             b1.HasKey("OperatorId");
-
-                            b1.HasIndex("Address")
-                                .IsUnique();
 
                             b1.ToTable("operators");
 

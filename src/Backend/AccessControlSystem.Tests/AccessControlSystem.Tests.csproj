@@ -19,6 +19,9 @@
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
     <PackageReference Include="NSubstitute" Version="5.3.0" />
     <PackageReference Include="Testcontainers.PostgreSql" Version="4.6.0" />
+    <!-- Sobe o pipeline real da Api (WebApplicationFactory/TestServer) nos testes de autenticação,
+         tenant e login. Pacote oficial da Microsoft, na versão do ASP.NET da solução. -->
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.12" />
     <!-- Alinha o EF Core com o resto da solução (Api usa 10.0.12). -->
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.12" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.12" />
@@ -33,11 +36,20 @@
     <Using Include="NSubstitute" />
   </ItemGroup>
 
+  <!-- Os mesmos SQL de papéis e privilégios do docker compose: os testes usam exatamente os papéis
+       do ambiente de desenvolvimento (a aplicação não é dona das tabelas e o RLS vale para ela). -->
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\..\docker\postgres\sql\roles.sql" LogicalName="sql/roles.sql" />
+    <EmbeddedResource Include="..\..\..\docker\postgres\sql\tenant-db-grants.sql" LogicalName="sql/tenant-db-grants.sql" />
+    <EmbeddedResource Include="..\..\..\docker\postgres\sql\catalog-db-grants.sql" LogicalName="sql/catalog-db-grants.sql" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\AccessControlSystem.Domain\AccessControlSystem.Domain.csproj" />
     <ProjectReference Include="..\AccessControlSystem.Application\AccessControlSystem.Application.csproj" />
     <ProjectReference Include="..\AccessControlSystem.Infrastructure\AccessControlSystem.Infrastructure.csproj" />
     <ProjectReference Include="..\AccessControlSystem.Api\AccessControlSystem.Api.csproj" />
+    <ProjectReference Include="..\AccessControlSystem.Migrator\AccessControlSystem.Migrator.csproj" />
   </ItemGroup>
 
 </Project>

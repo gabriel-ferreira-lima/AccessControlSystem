@@ -3,6 +3,7 @@ using AccessControlSystem.Domain.Contexts.AccountContext.Enums;
 using AccessControlSystem.Domain.Contexts.AccountContext.ValueObjects;
 using AccessControlSystem.Infrastructure.Context.AccountContext.UseCases.GetMe;
 using AccessControlSystem.Tests.Infrastructure.Fixtures;
+using AccessControlSystem.Tests.Infrastructure.Tenancy;
 
 namespace AccessControlSystem.Tests.Infrastructure.AccountContext.GetMe;
 
@@ -40,5 +41,15 @@ public class GetMeRepositoryTests
         await using var context = _fixture.CreateContext();
 
         Assert.Null(await new Repository(context).GetUserById(Guid.NewGuid()));
+    }
+
+    [Fact]
+    public async Task Isolamento_nao_devolve_operador_de_outro_tenant()
+    {
+        var deOutro = await _fixture.SeedOperatorAsync(PostgresContainerFixture.NewTenantId());
+
+        await using var context = _fixture.CreateContext();   // tenant padrão da fixture
+
+        Assert.Null(await new Repository(context).GetUserById(deOutro.Id));
     }
 }

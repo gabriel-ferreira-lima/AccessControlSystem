@@ -18,8 +18,11 @@ namespace AccessControlSystem.Infrastructure.Context.AccountContext.Mapping {
                     .HasColumnName("email")
                     .IsRequired(true)
                     .HasColumnType("varchar(255)");
-                b.HasIndex(x => x.Address)
-                    .IsUnique();
+
+                // A unicidade do e-mail é POR TENANT: o índice único (tenant_id, email) vive só na
+                // migration EnforceTenantIsolationOnOperators. O EF não aceita um índice que misture
+                // a propriedade do dono (tenant_id) com a do owned type (e-mail) em table splitting.
+                // A regra é protegida por teste de integração (SchemaContractTests).
             });
 
             builder.OwnsOne(x => x.Password)

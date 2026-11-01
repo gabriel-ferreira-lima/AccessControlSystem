@@ -5,6 +5,7 @@ using AccessControlSystem.Domain.Contexts.AccountContext.ValueObjects;
 using AccessControlSystem.Infrastructure.Context.AccountContext.UseCases.Create;
 using AccessControlSystem.Tests.Infrastructure.Fixtures;
 using Microsoft.EntityFrameworkCore;
+using AccessControlSystem.Tests.Infrastructure.Tenancy;
 
 namespace AccessControlSystem.Tests.Infrastructure.AccountContext.Create;
 
@@ -70,5 +71,45 @@ public class CreateRepositoryTests
         var repository = new Repository(context2);
 
         await Assert.ThrowsAsync<ConflictException>(() => repository.SaveAsync(NewOperator(email)));
+    }
+
+    [Fact]
+    public async Task SaveAsync_aceita_o_mesmo_email_em_outro_tenant()
+    {
+        // FR-019: o e-mail é único DENTRO do tenant, não no sistema todo.
+        var email = UniqueEmail();
+        var outroTenant = PostgresContainerFixture.NewTenantId();
+        await _fixture.SeedOperatorAsync(outroTenant, email);
+
+        await using (var context = _fixture.CreateContext())
+            await new Repository(context).SaveAsync(NewOperator(email));
+
+        await using var verify = _fixture.CreateContext();
+        Assert.True(await verify.Operators.AsNoTracking().AnyAsync(o => o.Email.Address == email));
+        await using var verifyOutro = _fixture.CreateContext(outroTenant);
+        Assert.True(await verifyOutro.Operators.AsNoTracking().AnyAsync(o => o.Email.Address == email));
+    }
+
+    [Fact]
+    public async Task SaveAsync_no_mesmo_tenant_lanca_ConflictException()
+    {
+        var email = UniqueEmail();
+        var tenant = PostgresContainerFixture.NewTenantId();
+        await _fixture.SeedOperatorAsync(tenant, email);
+
+        await using var context = _fixture.CreateContext(tenant);
+
+        await Assert.ThrowsAsync<ConflictException>(() => new Repository(context).SaveAsync(NewOperator(email)));
+    }
+
+    [Fact]
+    public async Task Isolamento_nao_enxerga_email_de_outro_tenant()
+    {
+        var email = UniqueEmail();
+        await _fixture.SeedOperatorAsync(PostgresContainerFixture.NewTenantId(), email);
+
+        await using var context = _fixture.CreateContext();   // tenant padrão da fixture
+
+        Assert.False(await new Repository(context).AnyAsync(email));
     }
 }

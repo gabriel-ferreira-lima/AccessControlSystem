@@ -5,6 +5,7 @@ using AccessControlSystem.Domain.Contexts.AccountContext.ValueObjects;
 using AccessControlSystem.Infrastructure.Context.AccountContext.UseCases.Get;
 using AccessControlSystem.Tests.Infrastructure.Fixtures;
 using Microsoft.EntityFrameworkCore;
+using AccessControlSystem.Tests.Infrastructure.Tenancy;
 
 namespace AccessControlSystem.Tests.Infrastructure.AccountContext.Get;
 
@@ -138,5 +139,21 @@ public class GetRepositoryTests
 
         Assert.Contains(result.Items, i => i.Id == active.Id);
         Assert.Contains(result.Items, i => i.Id == inactive.Id);
+    }
+
+    [Fact]
+    public async Task Isolamento_lista_e_total_so_do_tenant_corrente()
+    {
+        var tenantA = PostgresContainerFixture.NewTenantId();
+        var tenantB = PostgresContainerFixture.NewTenantId();
+        var deA = await _fixture.SeedOperatorAsync(tenantA);
+        await _fixture.SeedOperatorAsync(tenantB);
+        await _fixture.SeedOperatorAsync(tenantB);
+
+        await using var context = _fixture.CreateContext(tenantA);
+        var result = await new Repository(context).GetOperatorList(1, 100, EActiveFilter.All, CancellationToken.None);
+
+        Assert.Equal(1, result.Total);
+        Assert.Equal(deA.Id, Assert.Single(result.Items).Id);
     }
 }

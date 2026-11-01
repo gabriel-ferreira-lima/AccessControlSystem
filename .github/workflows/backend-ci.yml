@@ -6,12 +6,16 @@ on:
       - main
     paths:
       - 'src/Backend/**'
+      - 'docker/postgres/sql/**'
+      - 'docker/postgres/init/**'
       - '.github/workflows/backend-ci.yml'
   pull_request:
     branches:
       - main
     paths:
       - 'src/Backend/**'
+      - 'docker/postgres/sql/**'
+      - 'docker/postgres/init/**'
       - '.github/workflows/backend-ci.yml'
 
 jobs:
@@ -39,3 +43,6 @@ jobs:
 
       - name: Publish package
         run: dotnet publish AccessControlSystem.Api/AccessControlSystem.Api.csproj --configuration Release
+
+      - name: Publish Migrator
+        run: dotnet publish AccessControlSystem.Migrator/AccessControlSystem.Migrator.csproj --configuration Release

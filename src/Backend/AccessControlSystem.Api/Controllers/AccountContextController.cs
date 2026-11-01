@@ -1,4 +1,5 @@
 using AccessControlSystem.Api.Extensions;
+using AccessControlSystem.Api.Filters;
 using AccessControlSystem.Application.SharedContext.UseCases.Contracts;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -21,6 +22,7 @@ namespace AccessControlSystem.Api.Controllers {
         /// <response code="400">E-mail em formato inválido.</response>
         /// <response code="401">Credenciais inválidas ou conta desativada.</response>
         /// <response code="429">Muitas tentativas de login para este IP.</response>
+        [UseDefaultLoginTenant]
         [EnableRateLimiting("login")]
         [HttpPost("login")]
         public async Task<IActionResult> Login(
@@ -45,7 +47,7 @@ namespace AccessControlSystem.Api.Controllers {
         /// </param>
         /// <response code="201">Conta criada.</response>
         /// <response code="400">Requisição inválida (e-mail/senha fora do padrão, perfil inválido).</response>
-        /// <response code="409">Já existe conta cadastrada com esse e-mail.</response>
+        /// <response code="409">Já existe conta cadastrada com esse e-mail neste tenant.</response>
         [Authorize(Roles = "Admin")]
         [HttpPost("create")]
         public async Task<IActionResult> CreateAccount(
@@ -110,7 +112,7 @@ namespace AccessControlSystem.Api.Controllers {
         /// <response code="200">Conta atualizada.</response>
         /// <response code="400">Nenhum campo informado, ou e-mail/senha fora do padrão.</response>
         /// <response code="401">Sessão inválida (conta desativada ou removida) — faça login novamente.</response>
-        /// <response code="409">Já existe conta cadastrada com esse e-mail.</response>
+        /// <response code="409">Já existe conta cadastrada com esse e-mail neste tenant.</response>
         [Authorize]
         [HttpPut("update-me")]
         public async Task<IActionResult> UpdateMe(
@@ -139,7 +141,7 @@ namespace AccessControlSystem.Api.Controllers {
         /// <response code="200">Conta atualizada.</response>
         /// <response code="400">Nenhum campo informado, e-mail/senha fora do padrão, ou tentativa de rebaixar um admin para operador.</response>
         /// <response code="404">Operador não encontrado.</response>
-        /// <response code="409">Já existe conta cadastrada com esse e-mail.</response>
+        /// <response code="409">Já existe conta cadastrada com esse e-mail neste tenant.</response>
         [Authorize(Roles = "Admin")]
         [HttpPut("update/{id:guid}")]
         public async Task<IActionResult> UpdateAccount(

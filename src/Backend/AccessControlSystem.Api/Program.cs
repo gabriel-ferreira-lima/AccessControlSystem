@@ -20,7 +20,6 @@ builder.AddAccountContext();
 var app = builder.Build();
 app.UseForwardedHeaders();
 
-app.ApplyMigrations();
 app.UseExceptionHandler();
 
 if (app.Configuration.GetValue("HttpsRedirection:Enabled", true)) {
@@ -37,3 +36,6 @@ app.MapSwaggerUI(setupAction: options => {
 });
 
 app.Run();
+
+// Necessário para o WebApplicationFactory<Program> dos testes (o Program de nível superior é internal).
+public partial class Program { }

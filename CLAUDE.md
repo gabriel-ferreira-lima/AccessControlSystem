@@ -34,9 +34,18 @@ dotnet test Backend.slnx --filter "Category!=Integration" # só testes rápidos
 npm run typecheck
 npm run build
 
-# Tudo via Docker (na raiz)
+# Tudo via Docker (na raiz): catálogo, bases, migrator e uma API por tenant de teste
 docker compose up --build
+
+# Migrator (na raiz, via Docker): único caminho que aplica migrations
+docker compose run --rm migrator migrate     # atualiza o catálogo e todas as bases de tenant
+docker compose run --rm migrator seed-dev    # tenants e operadores sintéticos (só em Development)
 ```
+
+**Migrations só pelo Migrator.** A Api não aplica migrations ao iniciar. Nunca rode
+`dotnet ef database update` (nem bundle, nem script de `dotnet ef migrations script`) numa base
+nova: a migration `SeedAdmin` criaria o administrador de senha fixa. `dotnet ef migrations add`
+continua normal, só para **gerar** migrations.
 
 ## Fluxo
 

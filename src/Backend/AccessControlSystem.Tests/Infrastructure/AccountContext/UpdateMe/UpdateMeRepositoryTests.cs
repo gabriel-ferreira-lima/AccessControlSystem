@@ -4,6 +4,7 @@ using AccessControlSystem.Domain.Contexts.AccountContext.Enums;
 using AccessControlSystem.Domain.Contexts.AccountContext.ValueObjects;
 using AccessControlSystem.Infrastructure.Context.AccountContext.UseCases.UpdateMe;
 using AccessControlSystem.Tests.Infrastructure.Fixtures;
+using AccessControlSystem.Tests.Infrastructure.Tenancy;
 
 namespace AccessControlSystem.Tests.Infrastructure.AccountContext.UpdateMe;
 
@@ -102,5 +103,67 @@ public class UpdateMeRepositoryTests
         tracked!.UpdateEmail(new Email(other.Email.Address));
 
         await Assert.ThrowsAsync<ConflictException>(() => repository.UpdateAsync(tracked));
+    }
+
+    [Fact]
+    public async Task UpdateAsync_aceita_email_que_existe_so_em_outro_tenant()
+    {
+        // FR-019: trocar para um e-mail que só existe em outro tenant é permitido.
+        var deOutro = await _fixture.SeedOperatorAsync(PostgresContainerFixture.NewTenantId());
+        var meu = await SeedOperatorAsync(UniqueEmail());
+
+        await using (var context = _fixture.CreateContext())
+        {
+            var repository = new Repository(context);
+            var tracked = await repository.GetUserById(meu.Id);
+            tracked!.UpdateEmail(new Email(deOutro.Email.Address));
+            await repository.UpdateAsync(tracked);
+        }
+
+        await using var verify = _fixture.CreateContext();
+        Assert.Equal(deOutro.Email.Address, (await new Repository(verify).GetUserById(meu.Id))!.Email.Address);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_para_email_do_mesmo_tenant_lanca_ConflictException()
+    {
+        var tenant = PostgresContainerFixture.NewTenantId();
+        var other = await _fixture.SeedOperatorAsync(tenant);
+        var target = await _fixture.SeedOperatorAsync(tenant);
+
+        await using var context = _fixture.CreateContext(tenant);
+        var repository = new Repository(context);
+        var tracked = await repository.GetUserById(target.Id);
+        tracked!.UpdateEmail(new Email(other.Email.Address));
+
+        await Assert.ThrowsAsync<ConflictException>(() => repository.UpdateAsync(tracked));
+    }
+
+    [Fact]
+    public async Task CheckIfEmailIsNotUsed_considera_so_o_tenant_corrente()
+    {
+        var tenant = PostgresContainerFixture.NewTenantId();
+        var doTenant = await _fixture.SeedOperatorAsync(tenant);
+        var meu = await _fixture.SeedOperatorAsync(tenant);
+        var deOutro = await _fixture.SeedOperatorAsync(PostgresContainerFixture.NewTenantId());
+
+        await using var context = _fixture.CreateContext(tenant);
+        var repository = new Repository(context);
+
+        Assert.True(await repository.CheckIfEmailIsNotUsed(doTenant.Email.Address, meu.Id));    // em uso no tenant
+        Assert.False(await repository.CheckIfEmailIsNotUsed(deOutro.Email.Address, meu.Id));    // só existe em outro tenant
+    }
+
+    [Fact]
+    public async Task Isolamento_nao_enxerga_operador_nem_email_de_outro_tenant()
+    {
+        var deOutro = await _fixture.SeedOperatorAsync(PostgresContainerFixture.NewTenantId());
+        var meu = await SeedOperatorAsync(UniqueEmail());
+
+        await using var context = _fixture.CreateContext();   // tenant padrão da fixture
+        var repository = new Repository(context);
+
+        Assert.Null(await repository.GetUserById(deOutro.Id));
+        Assert.False(await repository.CheckIfEmailIsNotUsed(deOutro.Email.Address, meu.Id));   // o e-mail só existe em outro tenant
     }
 }

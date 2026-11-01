@@ -6,6 +6,9 @@ namespace AccessControlSystem.Api.Extensions {
         public static string Id(this ClaimsPrincipal user)
             => user.Claims.FirstOrDefault(c => c.Type == "Id")?.Value ?? string.Empty;
 
+        public static string TenantId(this ClaimsPrincipal user)
+            => user.Claims.FirstOrDefault(c => c.Type == "tenant")?.Value ?? string.Empty;
+
         public static string Email(this ClaimsPrincipal user)
             => user.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Name)?.Value ?? string.Empty;
         

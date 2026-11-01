@@ -1,14 +1,16 @@
-﻿using AccessControlSystem.Api.Handlers;
-using AccessControlSystem.Application;
+﻿using AccessControlSystem.Api.Filters;
+using AccessControlSystem.Api.Handlers;
+using AccessControlSystem.Api.Options;
+using AccessControlSystem.Application.SharedContext.Tenancy;
 using AccessControlSystem.Application.SharedContext.UseCases;
 using AccessControlSystem.Application.SharedContext.UseCases.Services;
-using AccessControlSystem.Infrastructure.Data;
 using AccessControlSystem.Infrastructure.Services;
+using AccessControlSystem.Infrastructure.Tenancy;
 using Flunt.Notifications;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using System.Text;
@@ -22,17 +24,21 @@ namespace AccessControlSystem.Api.Extensions {
 
         public static void AddConfiguration(this WebApplicationBuilder builder) {
 
-            Configuration.Database.ConnectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? string.Empty;
+            // Segredo obrigatório: a Api não inicia sem a chave do JWT (a exigência de 256 bits é da spec de segurança).
+            builder.Services.AddOptions<SecretsOptions>()
+                .BindConfiguration(SecretsOptions.SectionName)
+                .ValidateDataAnnotations()
+                .ValidateOnStart();
 
-            Configuration.Secrets.JwtPrivateKey = builder.Configuration.GetSection("Secrets").GetValue<string>("JwtPrivateKey") ?? string.Empty;
-            Configuration.Secrets.PasswordSaltKey = builder.Configuration.GetSection("Secrets").GetValue<string>("PasswordSaltKey") ?? string.Empty;
+            // Sem ValidateOnStart de propósito: sem tenant padrão só o login é afetado (responde 401 e loga o motivo).
+            builder.Services.AddOptions<LoginOptions>()
+                .BindConfiguration(LoginOptions.SectionName);
         }
 
         public static void AddDatabase(this WebApplicationBuilder builder) {
-            builder.Services.AddDbContext<AppDbContext>(
-                x => x.UseNpgsql(Configuration.Database.ConnectionString,
-                b => b.MigrationsAssembly("AccessControlSystem.Api")
-            ));
+            // Catálogo, resolução do tenant e AppDbContext por requisição, apontado para a base do tenant.
+            // A Api não aplica migrations: quem faz isso é o Migrator.
+            builder.Services.AddTenancy();
         }
 
         public static void AddJwtAuthentication(this WebApplicationBuilder builder) {
@@ -46,18 +52,43 @@ namespace AccessControlSystem.Api.Extensions {
                     x.RequireHttpsMetadata = false;
                     x.SaveToken = true;
                     x.TokenValidationParameters = new TokenValidationParameters {
-                        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(Configuration.Secrets.JwtPrivateKey)),
                         ValidateIssuer = false,
                         ValidateAudience = false
                     };
                     x.Events = new JwtBearerEvents {
+                        OnMessageReceived = context => {
+                            // O login é anônimo e resolve o tenant padrão por conta própria: um token enviado a
+                            // ele é ignorado (nem validado), seja qual for o tenant ou o estado dele.
+                            if (context.HttpContext.GetEndpoint()?.Metadata.GetMetadata<UseDefaultLoginTenantAttribute>() is not null) {
+                                context.NoResult();
+                            }
+
+                            return Task.CompletedTask;
+                        },
                         OnTokenValidated = async context => {
                             if (context.Principal == null || !Guid.TryParse(context.Principal.Id(), out var operatorId)) {
                                 context.Fail("Token sem identificação válida.");
                                 return;
                             }
 
-                            var checker = context.HttpContext.RequestServices.GetRequiredService<IActiveSessionChecker>();
+                            // O tenant vem da claim assinada, nunca de cabeçalho, rota ou corpo.
+                            if (!Guid.TryParse(context.Principal.TenantId(), out var tenantId) || tenantId == Guid.Empty) {
+                                context.Fail("Token sem tenant válido.");
+                                return;
+                            }
+
+                            var services = context.HttpContext.RequestServices;
+
+                            // Consulta o catálogo a cada requisição (sem cache): tenant inexistente ou inativo é recusado.
+                            // Base sem connection string ou inacessível NÃO é recusa: lança e vira 500.
+                            var resolver = services.GetRequiredService<ITenantResolver>();
+                            if (!await resolver.ResolveAsync(tenantId, context.HttpContext.RequestAborted)) {
+                                context.Fail("Tenant inexistente ou inativo.");
+                                return;
+                            }
+
+                            // Só depois do tenant resolvido a sessão pode ser conferida (sob o RLS do tenant).
+                            var checker = services.GetRequiredService<IActiveSessionChecker>();
 
                             if (!await checker.IsActiveAsync(operatorId, context.HttpContext.RequestAborted)) {
                                 context.Fail("Conta desativada.");
@@ -76,6 +107,14 @@ namespace AccessControlSystem.Api.Extensions {
                         },
                     };
                 });
+
+            // A chave vem das opções (lida quando a validação do token é montada, não na partida do builder).
+            builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
+                .Configure<IOptions<SecretsOptions>>((jwt, secrets) => {
+                    jwt.TokenValidationParameters.IssuerSigningKey =
+                        new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secrets.Value.JwtPrivateKey));
+                });
+
             builder.Services.AddAuthorization();
         }
 
