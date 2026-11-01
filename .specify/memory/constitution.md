@@ -59,8 +59,10 @@ Regras:
   continuem únicos se dados de tenants forem movidos ou consolidados.
 - **Acesso ao catálogo**: o código de tenant DEVE acessar o catálogo apenas por interfaces
   declaradas na Application (ex.: `ITenantCatalog`, `ITenantDirectory`) e implementadas na
-  Infrastructure. Ele NÃO DEVE ler tabelas do catálogo diretamente, e a única escrita permitida
-  são as entradas do diretório de operadores.
+  Infrastructure. Ele NÃO DEVE ler tabelas do catálogo diretamente, e só PODE escrever duas
+  coisas: as entradas do diretório de operadores e os **snapshots de medição de uso** (contagens
+  agregadas por tenant e período, sem nenhum dado pessoal, imutáveis depois de fechados), que
+  existem para a cobrança não precisar ler os dados de negócio do cliente.
 - **Sincronização do diretório**: todo use case que cria operador, altera e-mail, ativa ou
   desativa operador DEVE atualizar o diretório no mesmo fluxo. A estratégia para falha entre o
   catálogo e a base do tenant (compensação ou retry/outbox) é definida na spec do diretório e,
@@ -311,6 +313,23 @@ físicas. Cada regra acima corresponde a um problema real encontrado no código 
   vez, sem precisar varrer tabelas de eventos; a interface passa a mostrar "Usuário anonimizado".
 - O prazo de retenção, sua configuração por tenant e o job de anonimização são definidos em spec
   própria.
+- A anonimização DEVE ser irreversível (LGPD, Art. 12): nenhuma tabela, chave ou índice PODE
+  guardar algo que permita reidentificar o titular. Os backups continuam guardando os dados
+  originais até expirarem; o prazo de retenção dos backups DEVE ser documentado e informado ao
+  tenant.
+- **Residência dos dados**: dados pessoais de produção, incluindo réplicas, backups, logs e
+  traces, DEVEM ficar no Brasil (região AWS `sa-east-1`). Todo serviço que envie dado pessoal
+  para fora do Brasil (ex.: e-mail, monitoramento, suporte) DEVE ter o mecanismo de
+  transferência internacional exigido pelo Art. 33 da LGPD e pela Resolução CD/ANPD nº 19/2024
+  identificado e justificado na spec que o introduz.
+- **Incidentes de segurança**: o tenant, como controlador, tem 3 dias úteis para comunicar um
+  incidente à ANPD e aos titulares (Resolução CD/ANPD nº 15/2024). Por isso:
+  - o sistema DEVE permitir determinar, a partir de logs, traces e auditoria, **quais tenants e
+    quais categorias de dados** foram afetados por um incidente, e desde quando;
+  - DEVE existir um procedimento documentado de resposta a incidentes, com prazo para avisar os
+    tenants afetados **menor** que o prazo deles (o prazo exato fica no contrato com o cliente);
+  - todo incidente DEVE ser registrado (o quê, quando, tenants e dados afetados, medidas
+    tomadas), mesmo os que não precisem ser comunicados.
 
 ### XI. Auditoria
 
@@ -577,5 +596,5 @@ código novo; cada um é corrigido por spec própria.
 - `Domain/Contexts/UserContext`: `User.DateStart`/`DateEnd`, `Cpf.Validity` e `Rg.Validity` usam
   `DateTime` sem garantir `Kind = Utc` (viola a seção Operação).
 
-**Version**: 1.0.1 | **Ratified**: 2026-10-31 |
+**Version**: 1.1.0 | **Ratified**: 2026-10-31 |
 **Last Amended**: 2026-10-31
