@@ -78,7 +78,7 @@ namespace AccessControlSystem.Domain.Contexts.UserContext.Entities {
             Cpf = cpf;
         }
 
-        public void Active() {
+        public void Activate() {
             IsActive = true;
         }
         public void Deactivate() {
