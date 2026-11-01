@@ -1,0 +1,1 @@
+Arquivo temporário para validar que o Frontend CI não roda (spec 002, cenário 1.4).
