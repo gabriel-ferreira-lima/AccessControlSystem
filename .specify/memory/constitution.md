@@ -205,7 +205,9 @@ dados de negócio e credenciais nunca vão para ele.
   base, não são lidos nem alterados. A suíte DEVE ter também um teste que prova que o RLS bloqueia
   o acesso mesmo sem o filtro do EF.
 - Nomes de teste DEVEM ser frases em português com underscore, descrevendo o comportamento
-  (`Ultimo_admin_ativo_nao_pode_ser_desativado`).
+  (`Ultimo_admin_ativo_nao_pode_ser_desativado`). São a única exceção à regra de identificadores
+  em inglês e não seguem PascalCase. Classes de teste seguem a convenção normal
+  (`DeactivateHandlerTests`).
 - Ferramentas do backend: xUnit, NSubstitute, Testcontainers.PostgreSql. Nenhuma outra
   biblioteca de teste ou de assertion sem justificativa.
 - **Frontend**: o TDD vale também para o front.
@@ -421,15 +423,43 @@ muito mais.
 - **Infraestrutura:** AWS com serviços gerenciados (containers em ECS Fargate, PostgreSQL em RDS,
   Redis em ElastiCache, Secrets Manager, CloudWatch). Os serviços exatos e a ferramenta de
   infraestrutura como código são definidos na spec de ambientes; trocar um deles exige emenda.
-- **Idioma:** identificadores (classes, métodos, propriedades, rotas) em inglês; mensagens ao
-  usuário, títulos de `#region`, comentários e nomes de teste em português. Todo texto exibido ao
-  usuário (mensagens da API, telas e erros do frontend) DEVE estar em português com acentuação
-  correta; comentários de código PODEM ficar sem acento.
+- **Idioma:**
+  - **Em inglês**: todo o código e o banco. Isso inclui namespaces, classes, records,
+    interfaces, métodos, propriedades, campos, variáveis, parâmetros, enums e seus valores,
+    rotas, campos de JSON, tabelas, colunas, índices, constraints, nomes de migration e chaves
+    de configuração.
+  - **Em português**: nomes de métodos de teste (Princípio VII), comentários, títulos de
+    `#region` e todo texto exibido ao usuário. Texto exibido ao usuário (mensagens da API, telas
+    e erros do frontend) DEVE ter acentuação correta; comentários de código PODEM ficar sem
+    acento.
+  - **Documentação do Spec Kit em português**: ver "Fluxo de Desenvolvimento e Quality Gates".
+- **Nomenclatura C# (convenções do .NET):**
+  - `PascalCase`: namespaces, classes, records, structs, interfaces (com prefixo `I`), métodos,
+    propriedades, eventos, constantes, enums e seus membros.
+  - `camelCase`: parâmetros e variáveis locais.
+  - `_camelCase`: campos privados.
+  - Enums com prefixo `E` (`ERole`, `EActiveFilter`), como no código atual.
+  - Todo método assíncrono termina em `Async` (exceto métodos de teste).
+  - Nome com intenção e sem abreviação (`GetOperatorByIdAsync`, não `GetOpById`).
+- **Nomenclatura TypeScript:**
+  - `camelCase`: variáveis, funções, propriedades e hooks (`useAuth`).
+  - `PascalCase`: componentes, tipos e interfaces.
+  - Arquivos de componente e de página em `PascalCase.tsx` (`LoginPage.tsx`); demais arquivos em
+    `kebab-case` (`api-client.ts`).
+- **Contrato JSON da Api:** propriedades em `camelCase` (padrão do System.Text.Json) e enums
+  serializados como texto (`JsonStringEnumConverter`), como já acontece hoje.
 - **Estilo C#:** chave na mesma linha (K&R), `Nullable` habilitado, namespaces em bloco
-  espelhando as pastas, campos privados `_camelCase`, `@operator` para variáveis com nome
-  reservado. Código novo DEVE seguir o estilo do arquivo vizinho.
-- **Persistência:** mapeamento só via `IEntityTypeConfiguration` (`{Entidade}Map`), tabelas e
-  colunas em `snake_case`, value objects como owned types. Migrations ficam no assembly
+  espelhando as pastas, `@operator` para variáveis com nome reservado. Código novo DEVE seguir o
+  estilo do arquivo vizinho.
+- **Nomenclatura do banco:** tudo em `snake_case` e em inglês.
+  - Tabelas no plural (`operators`, `audit_events`).
+  - Colunas no singular, sem prefixo de tabela (`email`, `is_active`).
+  - Chave estrangeira `{entidade}_id` (`tenant_id`, `role_id`).
+  - Booleanos com `is_` / `has_`; datas e horas com `_at` (`occurred_at`).
+  - Índices e constraints, quando nomeados explicitamente, também em `snake_case`.
+- **Persistência:** mapeamento só via `IEntityTypeConfiguration` (`{Entidade}Map`), com nomes de
+  tabela e coluna explícitos (`ToTable`, `HasColumnName`) seguindo a nomenclatura do banco, e
+  value objects como owned types. Migrations ficam no assembly
   `AccessControlSystem.Api`; uma migration já aplicada NÃO DEVE ser editada — mudanças viram
   migration nova.
 - **Leitura:** consultas só de leitura DEVEM usar `AsNoTracking()`; listas DEVEM ser paginadas
@@ -467,6 +497,15 @@ muito mais.
 
 - Toda feature segue o fluxo do Spec Kit: `specify` → (`clarify`) → `plan` → `tasks` →
   (`analyze`) → `implement` → `converge`. A spec descreve a mudança, não o sistema inteiro.
+- **Idioma dos artefatos do Spec Kit**: `spec.md`, `plan.md`, `tasks.md`, `research.md`,
+  `data-model.md`, `quickstart.md`, `contracts/` e `checklists/` DEVEM ser escritos em
+  **português do Brasil**, incluindo os títulos de seção, mesmo que o template esteja em inglês.
+  - DEVEM ser preservados exatamente como no template os marcadores que as skills procuram:
+    `[NEEDS CLARIFICATION: ...]`, caixas `- [ ]` / `- [X]`, IDs (`T001`, `FR-001`, `SC-001`) e
+    marcadores de tarefa (`[P]`, `[US1]`).
+  - Ficam como são (em inglês): nomes de arquivo, caminhos, comandos, trechos de código e
+    identificadores citados no texto.
+  - Perguntas do `/speckit-clarify` e relatórios das skills ao usuário também são em português.
 - O `plan.md` DEVE passar no Constitution Check antes da pesquisa e de novo depois do design.
   Qualquer violação DEVE estar justificada em Complexity Tracking.
 - O `plan.md` DEVE reutilizar a estrutura existente (Princípio III) e apontar o use case de
@@ -596,5 +635,5 @@ código novo; cada um é corrigido por spec própria.
 - `Domain/Contexts/UserContext`: `User.DateStart`/`DateEnd`, `Cpf.Validity` e `Rg.Validity` usam
   `DateTime` sem garantir `Kind = Utc` (viola a seção Operação).
 
-**Version**: 1.1.0 | **Ratified**: 2026-10-31 |
+**Version**: 1.2.0 | **Ratified**: 2026-10-31 |
 **Last Amended**: 2026-10-31
