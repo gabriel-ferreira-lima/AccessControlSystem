@@ -17,7 +17,7 @@ backend (`../Backend`).
 
 ## Pré-requisitos
 
-- Node.js 20+ (testado com 24)
+- Node.js 20.19+ (o CI usa 22; testado também com 24)
 - API do backend em execução (ver `../Backend`)
 - Banco PostgreSQL acessível pela API
 
@@ -44,7 +44,45 @@ Outros scripts:
 npm run build      # tsc -b + vite build  ->  dist/
 npm run preview    # serve o build de produção
 npm run typecheck  # apenas verificação de tipos
+npm test           # testes (Vitest), uma execução
+npm run test:watch # testes em modo interativo (reroda ao salvar)
 ```
+
+## Testes
+
+Os testes não precisam de API, banco, Docker nem internet: a API é sempre **simulada na camada de
+rede com MSW**, devolvendo o envelope real (`message`, `status`, `isSuccess`, `notifications`,
+`data`). Os módulos de `src/api/` nunca são mockados.
+
+- **Ferramentas**: Vitest, Testing Library (`@testing-library/react`, `user-event`, `jest-dom`),
+  jsdom e MSW. Configuração no bloco `test` do `vite.config.ts`.
+- **Onde ficam**: ao lado do arquivo testado (`*.test.ts` / `*.test.tsx`). A infraestrutura
+  compartilhada fica em `src/test/`: `setup.ts`, `server.ts`, `envelope.ts`, `handlers.ts`,
+  `fixtures.ts` e `render.tsx`.
+- **Chamada não prevista reprova o teste**: toda requisição sem handler é registrada e o teste falha
+  com `Chamada de API não prevista no teste: MÉTODO URL`.
+- **TDD**: toda mudança de front segue Red → Green → Refactor (constituição, Princípio VII). Os testes
+  de caracterização desta base descrevem o comportamento de hoje; mudar esse comportamento exige
+  mudar o teste de propósito, de forma explícita na spec.
+
+### Como escrever um teste novo
+
+1. Escreva o `it` em português (com acentuação), ao lado do arquivo testado, e rode-o: ele deve
+   **falhar** (Red). Ex.: `npm test -- src/pages/LoginPage.test.tsx`.
+2. Declare o que a API devolve com as fábricas de `src/test/handlers.ts` via `server.use(...)`
+   (`loginHandler`, `listOperatorsHandler`, `getMeHandler`...). Cada uma aceita um resultado
+   (`success`, `failure`, `raw`, `network-error`...) e um espião `onRequest` para inspecionar
+   método, URL, cabeçalho `Authorization` e corpo enviados.
+3. Renderize com `renderWithProviders(<Tela />, { route, routeState, session })` (uma tela, com
+   `route` igual à rota real dela) ou `renderApp({ path, session })` (o `App` real, para rotas e
+   jornadas). Para entrar já autenticado, passe `session: adminSession` ou `operatorSession`
+   (`src/test/fixtures.ts`).
+4. Interaja com o `user` devolvido (`user-event`) e consulte por papel, rótulo ou texto
+   (`getByRole`, `getByLabelText`, `getByText`), nunca por classe CSS ou estrutura do DOM.
+5. Implemente o mínimo para passar (Green) e refatore.
+
+O CI (`.github/workflows/frontend-ci.yml`) roda `npm ci`, `npm run typecheck`, `npm test` e
+`npm run build` em todo pull request que altere `src/Frontend/` ou o próprio workflow.
 
 ## Integração com o backend
 
@@ -171,6 +209,7 @@ src/
   pages/          LoginPage, HomePage, MyAccountPage, OperatorsListPage,
                   CreateOperatorPage, EditOperatorPage, NotFoundPage
   styles/         tokens.css (temas), app.css
+  test/           Infraestrutura de testes (setup, servidor MSW, handlers, fixtures, render)
   types/          Contratos da API
 ```
 
