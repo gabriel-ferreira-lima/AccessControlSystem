@@ -622,7 +622,10 @@ código novo; cada um é corrigido por spec própria.
   Administrador".
 - `src/Frontend/src/components/RequireRole.tsx` e as rotas de `App.tsx`: acesso por nome de role
   (`Admin`/`Operator`) (viola os Princípios VIII e XII).
-- `src/Frontend`: nenhum teste automatizado e nenhum workflow de CI (viola o Princípio VII).
+- CI do backend e do frontend sem verificação de pacotes vulneráveis
+  (`dotnet list package --vulnerable` e `npm audit`); em 2026-11-01 o `npm audit` de
+  `src/Frontend` aponta 2 vulnerabilidades high (vite <=6.4.3 e source-map-js) (viola o Princípio
+  IX). Será corrigido pela spec 04 (security-hardening).
 - Entrega: não existem ambientes de homologação e produção, pipeline de deploy nem
   infraestrutura como código (o workflow do Azure App Service foi removido no commit `6dcb3e0`)
   (viola a seção "Branches, ambientes e entrega").
@@ -635,5 +638,5 @@ código novo; cada um é corrigido por spec própria.
 - `Domain/Contexts/UserContext`: `User.DateStart`/`DateEnd`, `Cpf.Validity` e `Rg.Validity` usam
   `DateTime` sem garantir `Kind = Utc` (viola a seção Operação).
 
-**Version**: 1.2.0 | **Ratified**: 2026-10-31 |
-**Last Amended**: 2026-10-31
+**Version**: 1.2.1 | **Ratified**: 2026-10-31 |
+**Last Amended**: 2026-11-01
