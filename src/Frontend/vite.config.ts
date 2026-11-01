@@ -1,4 +1,4 @@
-import { defineConfig } from "vite";
+import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 
 // A porta e fixada para que a origem do frontend seja previsivel
@@ -12,5 +12,12 @@ export default defineConfig({
   preview: {
     port: 5173,
     strictPort: true,
+  },
+  test: {
+    environment: "jsdom",
+    setupFiles: ["./src/test/setup.ts"],
+    include: ["src/**/*.test.{ts,tsx}"],
+    // Base da API fixa nos testes: um .env.local da máquina não pode mudar as URLs.
+    env: { VITE_API_BASE_URL: "http://api.test" },
   },
 });

@@ -32,6 +32,7 @@ dotnet test Backend.slnx --filter "Category!=Integration" # só testes rápidos
 
 # Frontend (em src/Frontend)
 npm run typecheck
+npm test                                                  # testes (Vitest, API simulada com MSW)
 npm run build
 
 # Tudo via Docker (na raiz): catálogo, bases, migrator e uma API por tenant de teste
