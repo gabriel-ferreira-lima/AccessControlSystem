@@ -64,7 +64,50 @@ public sealed class PostgresContainerFixture : IAsyncLifetime
         await context.SaveChangesAsync();
     }
 
-    public async Task DisposeAsync() => await _container.DisposeAsync();
+    public async Task DisposeAsync()
+    {
+        try
+        {
+            // Verificação final (Fase B, regra 11): papéis são do cluster inteiro, então um canário que não foi removido
+            // sobraria para os outros testes. O contêiner some logo depois, por isso a conferência é feita aqui.
+            var leftovers = await ListCanaryRolesAsync();
+            if (leftovers.Count > 0)
+            {
+                throw new InvalidOperationException(
+                    "Papéis-canário não removidos ao fim da suíte: " + string.Join(", ", leftovers));
+            }
+        }
+        finally
+        {
+            await _container.DisposeAsync();
+        }
+    }
+
+    private async Task<List<string>> ListCanaryRolesAsync()
+    {
+        if (_superuserConnectionString.Length == 0) return [];   // a inicialização nem chegou a subir o contêiner
+
+        await using var connection = await OpenSuperuserConnectionAsync();
+        await using var command = new NpgsqlCommand(
+            "select rolname from pg_roles where rolname like 'canary\\_%' order by rolname", connection);
+        await using var reader = await command.ExecuteReaderAsync();
+
+        var roles = new List<string>();
+        while (await reader.ReadAsync()) roles.Add(reader.GetString(0));
+        return roles;
+    }
+
+    /// <summary>
+    /// Conexão de superusuário no cluster (ou num banco isolado, pelo nome), sem pool. Usada só pelos papéis-canário e
+    /// pela limpeza: nenhum teste de comportamento da aplicação deve usá-la.
+    /// </summary>
+    public async Task<NpgsqlConnection> OpenSuperuserConnectionAsync(string? database = null)
+    {
+        var builder = new NpgsqlConnectionStringBuilder(_superuserConnectionString) { Pooling = false };
+        if (database is not null) builder.Database = database;
+
+        return await OpenAsync(builder.ConnectionString);
+    }
 
     private async Task<DatabaseConnectionStrings> CreateAndMigrateTenantDatabaseAsync(string name)
     {
@@ -157,6 +200,22 @@ public sealed class PostgresContainerFixture : IAsyncLifetime
     /// </summary>
     public Task<DatabaseConnectionStrings> CreateEmptyDatabaseAsync(string name) =>
         PostgresRoleBootstrap.CreateDatabaseAsync(_superuserConnectionString, name, isCatalog: false, temporary: true);
+
+    /// <summary>
+    /// Banco de tenant temporário com as migrations reais já aplicadas (o mesmo executor que migra as bases da
+    /// fixture, sem SQL à mão): o esquema e os privilégios padrão da aplicação são os de verdade. O equivalente do
+    /// catálogo é <see cref="CreateIsolatedCatalogAsync"/>.
+    /// </summary>
+    public async Task<DatabaseConnectionStrings> CreateMigratedTenantDatabaseAsync(string name)
+    {
+        var database = await CreateEmptyDatabaseAsync(name);
+
+        var result = await new EfDatabaseMigrationRunner().RunAsync(database.Migrator, CancellationToken.None);
+        if (!result.Succeeded)
+            throw new InvalidOperationException($"Falha ao migrar a base de teste '{name}': {result.Error}");
+
+        return database;
+    }
 
     /// <summary>Contexto de migrations (sem tenant) para uma connection string de migrator.</summary>
     public AppDbContext CreateMigrationContext(string migratorConnectionString) =>

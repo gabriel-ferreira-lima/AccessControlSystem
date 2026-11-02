@@ -15,9 +15,13 @@ Application/
 Architecture/          NoStaticTenantStateTests   (nenhum estado estático com dado de tenant)
                        RequestTextLimitsTests     (todo campo string de todo Request tem limite de tamanho, por reflexão)
 Infrastructure/
-  Fixtures/            PostgresContainerFixture, PostgresRoleBootstrap, DatabaseProbe
+  Fixtures/            PostgresContainerFixture, PostgresRoleBootstrap, DatabaseProbe,
+                       AppRoleProbe (sonda de privilégios de um papel), CanaryRole (papel descartável)
   Premises/            premissas do isolamento por tenant (P-01 a P-07), com container próprio
-  Tenancy/             isolamento (filtro do EF + RLS), interceptors, contrato do esquema, mobilidade
+  Tenancy/             isolamento (filtro do EF + RLS), interceptors, contrato do esquema, mobilidade;
+                       prova do usuário de banco da aplicação nas 3 bases: AppRolePrivilegeTests (DDL/papel/RLS
+                       negados e sonda limpa), CatalogReadOnlyTests (só leitura), DedicatedRowLevelSecurityTests,
+                       AppRoleProbeCanaryTests (papéis-canário: a sonda acusa o privilégio a mais)
   Catalog/             mapeamento e leitura do catálogo (TenantCatalog)
   Migrations/          adoção de base legada (LegacyDataMigrationTests)
   AccountContext/...            testes de repositório de cada use case (com casos de isolamento)
@@ -27,6 +31,12 @@ Api/                   TokenService, validação do JWT e do tenant, login padr�
                        InputLimitsApiTests (400 "Requisição inválida" para campo acima do tamanho máximo)
 Support/               FakeTimeProvider (relógio falso para os testes do limite de login)
 ```
+
+**Papéis-canário** (`Infrastructure/Fixtures/CanaryRole`): papéis de banco pertencem ao cluster inteiro, não ao banco
+isolado em que recebem um privilégio. Por isso cada canário tem nome único (`canary_<tipo>_<Guid:N>`), é `NOLOGIN` e é
+removido no `DisposeAsync` (`REASSIGN OWNED`, `DROP OWNED` em cada banco e `DROP ROLE`), e o `DisposeAsync` da
+`PostgresContainerFixture` falha a coleção (e o `dotnet test`) se sobrar algum `canary_%`. Nenhum teste altera o
+`acs_app` nem o `acs_migrator`.
 
 ## Mapa de cobertura de autorização (spec de segurança da autenticação e da sessão)
 
