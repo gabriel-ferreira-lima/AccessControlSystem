@@ -24,8 +24,9 @@ public class JwtValidationTests : ApiTestBase
         string? issuer = ApiFactory.JwtIssuer,
         string? audience = ApiFactory.JwtAudience,
         DateTime? expires = null,
-        string? algorithm = SecurityAlgorithms.HmacSha256Signature) =>
-        TestTokens.Create(admin.Id.ToString(), admin.Email, admin.Role, tenantId.ToString(), issuer, audience, expires, algorithm);
+        string? algorithm = SecurityAlgorithms.HmacSha256Signature,
+        string? securityVersion = "0") =>
+        TestTokens.Create(admin.Id.ToString(), admin.Email, admin.Role, tenantId.ToString(), issuer, audience, expires, algorithm, securityVersion);
 
     private static async Task AssertNaoAutenticadoAsync(Task<HttpResponseMessage> call)
     {
@@ -114,6 +115,31 @@ public class JwtValidationTests : ApiTestBase
         var (tenantId, admin) = await TenantWithOperatorAsync();
 
         await AssertNaoAutenticadoAsync(GetAsync(GetMe, Token(admin, tenantId, algorithm: null)));
+    }
+
+    #endregion
+
+    #region Versão de segurança (claim security_version)
+
+    [Fact]
+    public async Task Token_sem_security_version_retorna_401()
+    {
+        var (tenantId, admin) = await TenantWithOperatorAsync();
+
+        // Token no formato antigo (de antes da versão de segurança): recusado antes de qualquer consulta ao banco.
+        await AssertNaoAutenticadoAsync(GetAsync(GetMe, Token(admin, tenantId, securityVersion: null)));
+    }
+
+    [Theory]
+    [InlineData("abc")]    // texto
+    [InlineData("")]       // vazia
+    [InlineData("-1")]     // inteiro, mas diferente do atual
+    [InlineData("0.5")]    // decimal
+    public async Task Token_com_security_version_malformada_retorna_401(string securityVersion)
+    {
+        var (tenantId, admin) = await TenantWithOperatorAsync();
+
+        await AssertNaoAutenticadoAsync(GetAsync(GetMe, Token(admin, tenantId, securityVersion: securityVersion)));
     }
 
     #endregion

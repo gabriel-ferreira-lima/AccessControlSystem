@@ -4,6 +4,7 @@ using AccessControlSystem.Application.SharedContext.UseCases.Services;
 using AccessControlSystem.Domain.Contexts.AccountContext.Entities;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
+using System.Globalization;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 
@@ -48,9 +49,13 @@ namespace AccessControlSystem.Api.Services.AccountContext {
             var ci = new ClaimsIdentity();
 
             ci.AddClaim(new Claim("Id", @operator.Id.ToString()));
+            // O e-mail na claim Name é SÓ INFORMATIVO: trocar o e-mail não derruba o token, então ele pode ficar
+            // desatualizado. Nenhuma decisão (identidade, acesso, limite) pode se basear nele; a identidade é o Id.
             ci.AddClaim(new Claim(ClaimTypes.Name, @operator.Email));
             ci.AddClaim(new Claim(ClaimTypes.Role, @operator.Role.ToString()));
             ci.AddClaim(new Claim("tenant", tenantId.ToString()));
+            // Versão de segurança do operador no momento do login: o token só vale enquanto ela for a atual.
+            ci.AddClaim(new Claim("security_version", @operator.SecurityVersion.ToString(CultureInfo.InvariantCulture)));
 
             return ci;
         }

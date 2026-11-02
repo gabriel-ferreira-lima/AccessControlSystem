@@ -38,6 +38,12 @@ namespace AccessControlSystem.Api.Migrations
                         .HasColumnType("SMALLINT")
                         .HasColumnName("role");
 
+                    b.Property<int>("SecurityVersion")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("security_version");
+
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uuid")
                         .HasColumnName("tenant_id");

@@ -51,7 +51,7 @@ namespace AccessControlSystem.Api.Extensions {
         }
 
         public static void AddJwtAuthentication(this WebApplicationBuilder builder) {
-            builder.Services.AddScoped<IActiveSessionChecker, ActiveSessionChecker>();
+            builder.Services.AddScoped<ISessionValidator, SessionValidator>();
 
             builder.Services
                 .AddAuthentication(x => {
@@ -94,6 +94,13 @@ namespace AccessControlSystem.Api.Extensions {
                                 return;
                             }
 
+                            // A versão de segurança também vem da claim assinada. Token sem ela (ou com ela malformada) é
+                            // recusado AQUI, antes de qualquer consulta ao catálogo ou à base do tenant.
+                            if (context.Principal.SecurityVersion() is not int securityVersion) {
+                                context.Fail("Token sem versão de segurança válida.");
+                                return;
+                            }
+
                             var services = context.HttpContext.RequestServices;
 
                             // Consulta o catálogo a cada requisição (sem cache): tenant inexistente ou inativo é recusado.
@@ -105,10 +112,11 @@ namespace AccessControlSystem.Api.Extensions {
                             }
 
                             // Só depois do tenant resolvido a sessão pode ser conferida (sob o RLS do tenant).
-                            var checker = services.GetRequiredService<IActiveSessionChecker>();
+                            var validator = services.GetRequiredService<ISessionValidator>();
 
-                            if (!await checker.IsActiveAsync(operatorId, context.HttpContext.RequestAborted)) {
-                                context.Fail("Conta desativada.");
+                            // Uma única consulta: operador existente, ativo e com a versão de segurança do token.
+                            if (!await validator.IsValidAsync(operatorId, securityVersion, context.HttpContext.RequestAborted)) {
+                                context.Fail("Sessão inválida.");
                             }
                         },
                         OnChallenge = async context => {

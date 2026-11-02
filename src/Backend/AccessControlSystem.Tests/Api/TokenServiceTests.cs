@@ -96,6 +96,17 @@ public class TokenServiceTests
         Assert.Equal([TestAudience], jwt.Audiences);
     }
 
+    [Fact]
+    public void Token_carrega_a_security_version_do_operador()
+    {
+        var op = NewOperator(ERole.Admin);
+        op.UpdatePassword(new Password("Nova1!Senha"));   // sobe a versão de segurança para 1
+
+        var principal = Validate(_service.Generate(op));
+
+        Assert.Equal("1", principal.FindFirstValue("security_version"));
+    }
+
     // Guarda: o algoritmo já é HS256 hoje; o teste impede que mudem a assinatura sem a Api (que fixa HS256) saber.
     [Fact]
     public void Token_e_assinado_com_hs256()
