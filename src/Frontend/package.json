@@ -26,6 +26,7 @@
     "@types/react-dom": "^19.1.0",
     "@vitejs/plugin-react": "^4.3.4",
     "jsdom": "^27.4.0",
+    "lodash": "^4.17.15",
     "msw": "^2.14.0",
     "typescript": "~5.8.3",
     "vite": "^6.4.5",
