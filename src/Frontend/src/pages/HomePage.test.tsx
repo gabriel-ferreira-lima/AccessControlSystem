@@ -7,11 +7,11 @@ describe("HomePage", () => {
   it("mostra o título, a descrição e o aviso de que as informações serão adicionadas", () => {
     renderWithProviders(<HomePage />, { route: "/" });
 
-    expect(screen.getByRole("heading", { name: "Inicio" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Início" })).toBeInTheDocument();
     expect(screen.getByText("Console de controle de acesso.")).toBeInTheDocument();
     expect(
       screen.getByText(
-        "As informacoes desta pagina serao adicionadas conforme os servicos forem disponibilizados.",
+        "As informações desta página serão adicionadas conforme os serviços forem disponibilizados.",
       ),
     ).toBeInTheDocument();
   });

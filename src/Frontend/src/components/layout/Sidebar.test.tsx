@@ -5,23 +5,23 @@ import { renderWithProviders } from "../../test/render";
 import { Sidebar } from "./Sidebar";
 
 function navigation() {
-  return screen.getByRole("navigation", { name: "Navegacao principal" });
+  return screen.getByRole("navigation", { name: "Navegação principal" });
 }
 
 describe("Sidebar", () => {
-  it("mostra para o Administrador os itens Inicio e Operadores, sem Minha conta", () => {
+  it("mostra para o Administrador os itens Início e Operadores, sem Minha conta", () => {
     renderWithProviders(<Sidebar />, { route: "/", session: adminSession });
 
     const links = within(navigation()).getAllByRole("link");
-    expect(links.map((link) => link.textContent)).toEqual(["Inicio", "Operadores"]);
+    expect(links.map((link) => link.textContent)).toEqual(["Início", "Operadores"]);
     expect(within(navigation()).queryByRole("link", { name: "Minha conta" })).not.toBeInTheDocument();
   });
 
-  it("mostra para o Operador os itens Inicio e Minha conta, sem Operadores", () => {
+  it("mostra para o Operador os itens Início e Minha conta, sem Operadores", () => {
     renderWithProviders(<Sidebar />, { route: "/", session: operatorSession });
 
     const links = within(navigation()).getAllByRole("link");
-    expect(links.map((link) => link.textContent)).toEqual(["Inicio", "Minha conta"]);
+    expect(links.map((link) => link.textContent)).toEqual(["Início", "Minha conta"]);
     expect(within(navigation()).queryByRole("link", { name: "Operadores" })).not.toBeInTheDocument();
   });
 
@@ -29,13 +29,13 @@ describe("Sidebar", () => {
     renderWithProviders(<Sidebar />, { route: "/" });
 
     const links = within(navigation()).getAllByRole("link");
-    expect(links.map((link) => link.textContent)).toEqual(["Inicio"]);
+    expect(links.map((link) => link.textContent)).toEqual(["Início"]);
   });
 
   it("aponta cada item para a sua rota", () => {
     renderWithProviders(<Sidebar />, { route: "/", session: adminSession });
 
-    expect(screen.getByRole("link", { name: "Inicio" })).toHaveAttribute("href", "/");
+    expect(screen.getByRole("link", { name: "Início" })).toHaveAttribute("href", "/");
     expect(screen.getByRole("link", { name: "Operadores" })).toHaveAttribute("href", "/operadores");
   });
 
@@ -43,12 +43,12 @@ describe("Sidebar", () => {
     renderWithProviders(<Sidebar />, { route: "/operadores", session: adminSession });
 
     expect(screen.getByRole("link", { name: "Operadores" })).toHaveAttribute("aria-current", "page");
-    expect(screen.getByRole("link", { name: "Inicio" })).not.toHaveAttribute("aria-current");
+    expect(screen.getByRole("link", { name: "Início" })).not.toHaveAttribute("aria-current");
   });
 
   it("não mostra os grupos que ficam sem itens para o perfil", () => {
     const { unmount } = renderWithProviders(<Sidebar />, { route: "/", session: adminSession });
-    expect(screen.getByText("Operacao")).toBeInTheDocument();
+    expect(screen.getByText("Operação")).toBeInTheDocument();
     expect(screen.getByText("Operadores", { selector: "p" })).toBeInTheDocument();
     expect(screen.queryByText("Conta")).not.toBeInTheDocument();
     unmount();

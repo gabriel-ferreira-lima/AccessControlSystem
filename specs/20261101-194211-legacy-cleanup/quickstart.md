@@ -147,7 +147,7 @@ npm run typecheck && npm test && npm run build      # Green: 238 aprovados
 **Varredura (SC-004)**: nenhuma forma sem acento nos textos de interface.
 
 ```bash
-git grep -nE "Nao foi poss|Sua sessao|Faca login|e limitado|>Inicio<|\"Inicio\"|informacoes desta|Pagina nao|nao existe ou foi|Operacao\"|Navegacao principal|o conteudo|Encerrar sessao|>Acoes<|por pagina|pagina \{|Proxima|deixara de|Salvar alteracoes" -- 'src/Frontend/src/**/*.ts' 'src/Frontend/src/**/*.tsx'
+git grep -nE "Nao foi poss|Sua sessao|Faca login|e limitado|>Inicio<|\"Inicio\"|informacoes desta|Pagina nao|nao existe ou foi|Operacao\"|Navegacao principal|o conteudo|Encerrar sessao|>Acoes<|por pagina|pagina \{|Proxima|deixara de|Salvar alteracoes" -- 'src/Frontend/src/*.ts' 'src/Frontend/src/*.tsx'
 ```
 
 Esperado: **0 linhas** (testes incluídos). Não casa com `href="#conteudo"` nem com a mensagem técnica

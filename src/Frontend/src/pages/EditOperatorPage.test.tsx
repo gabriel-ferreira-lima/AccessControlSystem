@@ -50,7 +50,7 @@ describe("EditOperatorPage: abertura e envio parcial", () => {
 
     await user.clear(screen.getByLabelText("E-mail"));
     await user.type(screen.getByLabelText("E-mail"), "novo@example.test");
-    await user.click(screen.getByRole("button", { name: "Salvar alteracoes" }));
+    await user.click(screen.getByRole("button", { name: "Salvar alterações" }));
 
     await screen.findByText("Conta atualizada com sucesso.");
     expect(onRequest).toHaveBeenCalledTimes(1);
@@ -68,7 +68,7 @@ describe("EditOperatorPage: abertura e envio parcial", () => {
     const { user } = renderEdit({ state: FROM_LIST });
 
     await user.type(screen.getByLabelText("Nova senha"), "nova-senha-123");
-    await user.click(screen.getByRole("button", { name: "Salvar alteracoes" }));
+    await user.click(screen.getByRole("button", { name: "Salvar alterações" }));
 
     await screen.findByText("Conta atualizada com sucesso.");
     expect(onRequest.mock.calls[0][0].body).toEqual({ password: "nova-senha-123" });
@@ -80,7 +80,7 @@ describe("EditOperatorPage: abertura e envio parcial", () => {
     const { user } = renderEdit({ state: FROM_LIST });
 
     await user.selectOptions(screen.getByLabelText("Perfil de acesso"), "Operador");
-    await user.click(screen.getByRole("button", { name: "Salvar alteracoes" }));
+    await user.click(screen.getByRole("button", { name: "Salvar alterações" }));
 
     await screen.findByText("Conta atualizada com sucesso.");
     expect(onRequest.mock.calls[0][0].body).toEqual({ role: "Operator" });
@@ -91,7 +91,7 @@ describe("EditOperatorPage: abertura e envio parcial", () => {
     server.use(updateOperatorHandler({ kind: "success", data: updated() }, onRequest));
     const { user } = renderEdit({ state: FROM_LIST });
 
-    await user.click(screen.getByRole("button", { name: "Salvar alteracoes" }));
+    await user.click(screen.getByRole("button", { name: "Salvar alterações" }));
 
     await screen.findByText("Conta atualizada com sucesso.");
     expect(onRequest.mock.calls[0][0].body).toEqual({});
@@ -103,7 +103,7 @@ describe("EditOperatorPage: abertura e envio parcial", () => {
     const { user } = renderEdit({ state: FROM_LIST });
 
     await user.clear(screen.getByLabelText("E-mail"));
-    await user.click(screen.getByRole("button", { name: "Salvar alteracoes" }));
+    await user.click(screen.getByRole("button", { name: "Salvar alterações" }));
 
     await screen.findByText("Conta atualizada com sucesso.");
     expect(onRequest.mock.calls[0][0].body).toEqual({});
@@ -114,7 +114,7 @@ describe("EditOperatorPage: abertura e envio parcial", () => {
     server.use(updateOperatorHandler({ kind: "success", data: updated() }, onRequest));
     const { user } = renderEdit({ search: "?id=ab%20cd", state: FROM_LIST });
 
-    await user.click(screen.getByRole("button", { name: "Salvar alteracoes" }));
+    await user.click(screen.getByRole("button", { name: "Salvar alterações" }));
 
     await screen.findByText("Conta atualizada com sucesso.");
     expect(onRequest.mock.calls[0][0].url).toBe(`${API_BASE_URL}/v1/account/update/ab%20cd`);
@@ -134,7 +134,7 @@ describe("EditOperatorPage: abertura e envio parcial", () => {
     const { user } = renderEdit();
 
     await user.type(screen.getByLabelText("Nova senha"), "nova-senha-123");
-    await user.click(screen.getByRole("button", { name: "Salvar alteracoes" }));
+    await user.click(screen.getByRole("button", { name: "Salvar alterações" }));
 
     await screen.findByText("Conta atualizada com sucesso.");
     expect(onRequest.mock.calls[0][0].body).toEqual({ password: "nova-senha-123", role: "Operator" });
@@ -146,7 +146,7 @@ describe("EditOperatorPage: abertura e envio parcial", () => {
     const { user } = renderEdit();
 
     await user.type(screen.getByLabelText("E-mail"), "novo@example.test");
-    await user.click(screen.getByRole("button", { name: "Salvar alteracoes" }));
+    await user.click(screen.getByRole("button", { name: "Salvar alterações" }));
 
     await screen.findByText("Conta atualizada com sucesso.");
     expect(onRequest.mock.calls[0][0].body).toEqual({ email: "novo@example.test", role: "Operator" });
@@ -169,7 +169,7 @@ describe("EditOperatorPage: abertura e envio parcial", () => {
       "/operadores",
     );
     expect(screen.queryByLabelText("E-mail")).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Salvar alteracoes" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Salvar alterações" })).not.toBeInTheDocument();
   });
 });
 
@@ -188,7 +188,7 @@ describe("EditOperatorPage: sucesso, erros e limpar", () => {
     await user.type(screen.getByLabelText("Nova senha"), "nova-senha-123");
     await user.selectOptions(screen.getByLabelText("Perfil de acesso"), "Operador");
 
-    await user.click(screen.getByRole("button", { name: "Salvar alteracoes" }));
+    await user.click(screen.getByRole("button", { name: "Salvar alterações" }));
 
     const success = await screen.findByRole("status");
     expect(success).toHaveTextContent("Conta atualizada com sucesso.");
@@ -203,7 +203,7 @@ describe("EditOperatorPage: sucesso, erros e limpar", () => {
     expect(screen.getByLabelText("Nova senha")).toHaveValue("");
 
     // A nova referência é a resposta da api: um segundo envio sem mudanças vai com corpo vazio.
-    await user.click(screen.getByRole("button", { name: "Salvar alteracoes" }));
+    await user.click(screen.getByRole("button", { name: "Salvar alterações" }));
     await screen.findByText("Conta atualizada com sucesso.");
     expect(onRequest).toHaveBeenCalledTimes(2);
     expect(onRequest.mock.calls[1][0].body).toEqual({});
@@ -226,7 +226,7 @@ describe("EditOperatorPage: sucesso, erros e limpar", () => {
     const { user } = renderEdit({ state: FROM_LIST });
     await user.type(screen.getByLabelText("Nova senha"), "123");
 
-    await user.click(screen.getByRole("button", { name: "Salvar alteracoes" }));
+    await user.click(screen.getByRole("button", { name: "Salvar alterações" }));
 
     await screen.findByText("Requisição inválida");
     const alerts = screen.getAllByRole("alert");
@@ -246,7 +246,7 @@ describe("EditOperatorPage: sucesso, erros e limpar", () => {
     await user.type(screen.getByLabelText("E-mail"), "outro@example.test");
     await user.type(screen.getByLabelText("Nova senha"), "nova-senha-123");
     await user.selectOptions(screen.getByLabelText("Perfil de acesso"), "Operador");
-    await user.click(screen.getByRole("button", { name: "Salvar alteracoes" }));
+    await user.click(screen.getByRole("button", { name: "Salvar alterações" }));
     await screen.findByText("E-mail já cadastrado");
 
     await user.click(screen.getByRole("button", { name: "Limpar" }));
@@ -274,10 +274,10 @@ describe("EditOperatorPage: sucesso, erros e limpar", () => {
     const { user } = renderEdit({ state: FROM_LIST });
     await user.type(screen.getByLabelText("Nova senha"), "nova-senha-123");
 
-    await user.click(screen.getByRole("button", { name: "Salvar alteracoes" }));
+    await user.click(screen.getByRole("button", { name: "Salvar alterações" }));
 
     await waitFor(() => expect(onRequest).toHaveBeenCalledTimes(1));
-    await waitFor(() => expect(screen.getByRole("button", { name: "Salvar alteracoes" })).toBeEnabled());
+    await waitFor(() => expect(screen.getByRole("button", { name: "Salvar alterações" })).toBeEnabled());
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Nova senha")).toHaveValue("nova-senha-123");
@@ -296,7 +296,7 @@ describe("EditOperatorPage: sucesso, erros e limpar", () => {
     );
     const { user } = renderEdit({ state: FROM_LIST });
 
-    await user.click(screen.getByRole("button", { name: "Salvar alteracoes" }));
+    await user.click(screen.getByRole("button", { name: "Salvar alterações" }));
 
     expect(await screen.findByRole("button", { name: "Salvando..." })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Limpar" })).toBeDisabled();

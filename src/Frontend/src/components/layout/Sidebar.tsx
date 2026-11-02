@@ -20,8 +20,8 @@ interface NavSection {
 
 const SECTIONS: NavSection[] = [
   {
-    label: "Operacao",
-    items: [{ to: "/", label: "Inicio", icon: IconPanel, end: true }],
+    label: "Operação",
+    items: [{ to: "/", label: "Início", icon: IconPanel, end: true }],
   },
   {
     label: "Conta",
@@ -71,7 +71,7 @@ export function Sidebar() {
         </span>
       </div>
 
-      <nav className="sidebar__nav" aria-label="Navegacao principal">
+      <nav className="sidebar__nav" aria-label="Navegação principal">
         {sections.map((section) => (
           <div className="sidebar__group" key={section.label}>
             <p className="sidebar__group-label">{section.label}</p>

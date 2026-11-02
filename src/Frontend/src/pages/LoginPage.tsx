@@ -77,7 +77,7 @@ export function LoginPage() {
           {error ? (
             <Alert tone="error" title={error.message} notifications={error.notifications} />
           ) : sessionExpired ? (
-            <Alert tone="info" title="Sua sessao foi encerrada. Faca login novamente." />
+            <Alert tone="info" title="Sua sessão foi encerrada. Faça login novamente." />
           ) : null}
 
           <TextField
@@ -115,7 +115,7 @@ export function LoginPage() {
         </form>
 
         <p className="auth__notice">
-          O uso deste sistema e limitado a operadores autorizados.
+          O uso deste sistema é limitado a operadores autorizados.
         </p>
       </main>
     </div>

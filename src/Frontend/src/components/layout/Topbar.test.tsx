@@ -20,7 +20,7 @@ describe("Topbar", () => {
   it("apaga a sessão e vai ao login ao encerrar a sessão", async () => {
     const { user } = renderWithProviders(<Topbar />, { route: "/", session: adminSession });
 
-    await user.click(screen.getByRole("button", { name: "Encerrar sessao" }));
+    await user.click(screen.getByRole("button", { name: "Encerrar sessão" }));
 
     expect(await screen.findByText("Rota atual: /login")).toBeInTheDocument();
     expect(window.sessionStorage.getItem("acs.session")).toBeNull();

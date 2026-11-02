@@ -6,7 +6,7 @@ export function AppShell() {
   return (
     <div className="app-shell">
       <a className="skip-link" href="#conteudo">
-        Ir para o conteudo
+        Ir para o conteúdo
       </a>
       <Sidebar />
       <div className="app-shell__main">
