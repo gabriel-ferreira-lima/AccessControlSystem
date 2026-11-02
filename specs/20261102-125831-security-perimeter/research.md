@@ -155,8 +155,10 @@ connect-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; 
 **Decisão**: o hash `sha256` do texto do script do tema fica no `security-headers.conf`. Um teste
 do Vitest (`src/lib/security-headers.test.ts`) importa `index.html` e `security-headers.conf` com o
 sufixo `?raw`, extrai o conteúdo do único `<script>` sem `src`, normaliza `\r\n`→`\n`, calcula
-SHA-256 em base64 (`crypto.subtle`, ambiente `node` pelo comentário `// @vitest-environment node`)
-e exige que `'sha256-<hash>'` apareça na CSP; a mensagem de falha traz o hash **novo** para copiar
+SHA-256 em base64 com `crypto.subtle`, no ambiente **jsdom padrão** do projeto (sem pragma de
+ambiente: o `src/test/setup.ts` usa `window` e `HTMLDialogElement` em todo teste e **não** é
+alterado; se `crypto.subtle` não existir nesse ambiente, **parar e reportar**, sem trocar o ambiente
+nem tocar o `setup.ts`), e exige que `'sha256-<hash>'` apareça na CSP; a mensagem de falha traz o hash **novo** para copiar
 (é essa a documentação de "como recalcular", repetida no README do front). O teste também falha se
 houver **mais de um** script sem `src` (um segundo script escrito na página seria bloqueado).
 
@@ -264,11 +266,18 @@ conferido manualmente no quickstart e o hash é provado por dois testes).
   única instrução** (`CREATE TABLE` na compartilhada) à de `SchemaContractTests`, porque o teste
   novo é parametrizado por base; o teste antigo mantém o que é único dele (matriz do `operators`,
   índices).
-- **Papéis-canário (FR-023)**: em banco isolado (`CreateIsolatedCatalogAsync`/`CreateEmptyDatabaseAsync`
-  já existem), um papel de teste recebe cada privilégio indevido (`CREATE` no esquema, `DELETE`,
+- **Papéis-canário (FR-023)**: em banco isolado **com as migrations reais** (catálogo por
+  `CreateIsolatedCatalogAsync`; tenant por `CreateMigratedTenantDatabaseAsync`, novo auxiliar da
+  fixture que reaproveita o `EfDatabaseMigrationRunner`; nada de `CREATE TABLE` à mão), um papel de teste recebe cada privilégio indevido (`CREATE` no esquema, `DELETE`,
   `TRUNCATE`, `BYPASSRLS`, propriedade de uma tabela, associação a outro papel) e o teste exige que
   `AppRoleProbe` devolva a violação correspondente. Assim a prova **falha** quando a permissão
-  sobra, sem alterar o `acs_app` do cluster compartilhado dos testes.
+  sobra, sem alterar o `acs_app` do cluster compartilhado dos testes. **Papéis pertencem ao
+  cluster inteiro, não ao banco isolado**: cada canário tem **nome único por execução**
+  (`canary_<tipo>_<Guid:N>`), é criado `NOLOGIN` e é removido no `DisposeAsync` mesmo se a
+  asserção falhar, com `REASSIGN OWNED BY` e `DROP OWNED BY` em cada banco onde recebeu algo
+  (sem isso o `DROP ROLE` falha por objetos dependentes) seguidos de `DROP ROLE`. Cada teste
+  confere que o **seu** papel sumiu, e o `DisposeAsync` da fixture confere, antes de descartar o
+  contêiner, que nenhum `canary_%` sobrou na suíte inteira (falha a coleção se sobrar).
 
 **Por quê**: o requisito é "provado por teste" e "protege contra regressão". Atributos de papel
 são do cluster e o `acs_app` é compartilhado pela suíte; mexer nele para "ver falhar" quebraria os
@@ -295,19 +304,34 @@ outros testes. O canário em papel/banco próprio resolve sem esse risco.
   também auditam, pois o *restore* é quem audita.
 
 **Efeito colateral aceito**: um aviso novo num pacote já usado quebra o build e o `docker compose
-up --build` até corrigir ou justificar (é o objetivo). Os `docker build` das imagens da Api e do
-Migrator restauram com a auditoria ligada.
+up --build` até corrigir ou justificar (é o objetivo).
+
+**Correção (Dockerfiles)**: os Dockerfiles da Api e do Migrator (contexto de build `src/Backend`,
+`WORKDIR /src`) copiam **só os `.csproj`** antes do `RUN dotnet restore`; o `COPY . .` que traz o
+resto vem depois, e o `publish` usa `--no-restore`. Sem outra mudança, o `Directory.Build.props`
+**não estaria presente** no restore das imagens e a auditoria nativa não valeria nelas. Por isso a
+Fase D acrescenta `COPY Directory.Build.props ./` **antes** do `RUN dotnet restore` nos dois
+Dockerfiles (tarefas T059 e T060), e o `PackageAuditConfigTests` exige essa linha antes do primeiro
+`dotnet restore` (a regressão fica travada por teste). Dentro do `docker build` a variável `CI` não
+existe, então `NU1900` não é erro ali (o `NU1901`–`NU1904` é); a falha de consulta aos avisos é
+barrada pelo `restore` do CI. O `.dockerignore` de `src/Backend` não exclui o arquivo.
 
 **Verificação a fazer na implementação**: confirmar que `NuGetAuditSuppress` por GHSA silencia
 os 2 avisos do `SSH.NET` transitivo e que `dotnet build` fica verde sem `NoWarn`; se o
-suppress não casar com a URL exata, o plano cai para `NoWarn` **só nos dois códigos** com a
-justificativa, registrando a razão.
+suppress não casar com a URL exata, **parar e reportar a saída real**. **Não há fallback para
+`NoWarn`** (nem para `WarningsAsErrors` afrouxado): seria a supressão geral que a FR-027 proíbe e
+contradiz o `PackageAuditConfigTests` (item 2).
 
-**Proposta de emenda (PATCH) à constituição, a cargo do dono do projeto**: nos textos do Princípio
-IX e do Fluxo ("`dotnet list package --vulnerable`, `npm audit`"), trocar pelo mecanismo
-equivalente em uso ("NuGet Audit como erro no *restore*, `npm audit`"), e retirar do "Legado
-conhecido" os itens do `nginx.conf` e do CI sem verificação de pacotes. Esta spec não edita a
-constituição (Integridade das entregas).
+**Por que o `dotnet list package --vulnerable` não é gate**: ele imprime texto e sai com código 0
+mesmo com vulnerabilidade, e **não respeita o `NuGetAuditSuppress`** (o `SSH.NET` continuaria
+aparecendo, sem distinguir exceção justificada de aviso novo). Por isso o `tasks.md` **não** o
+inclui como gate; o gate é o NuGet Audit no *restore*.
+
+**Emenda (PATCH) à constituição: APROVADA pelo dono do projeto (2026-11-02)**, a ser aplicada pelo
+revisor logo após o merge desta spec (esta spec não edita a constituição, Integridade das
+entregas): nos textos do Princípio IX e do Fluxo ("`dotnet list package --vulnerable`,
+`npm audit`"), trocar pelo mecanismo em uso ("NuGet Audit como erro no *restore*, `npm audit`"), e
+retirar do "Legado conhecido" os itens do `nginx.conf` e do CI sem verificação de pacotes.
 
 ## R-13 — `npm audit`, `vite` e pendências para a spec 05
 
@@ -326,8 +350,11 @@ pedir. Typecheck, testes e build precisam continuar verdes sem tocar em teste.
 **Validação de verdade (FR-030)**: PR em rascunho, nunca integrado, uma vez por ecossistema
 (backend: um `PackageReference` com vulnerabilidade conhecida e já corrigida, por exemplo
 `Newtonsoft.Json 12.0.3`; front: `npm install lodash@4.17.15 --save-dev`), esperando CI vermelho
-no passo de auditoria, e depois fechado sem merge. **Envolve push e PR no GitHub, ação externa: o
-`tasks.md` marca a tarefa como dependente de confirmação explícita do Gabriel.**
+no passo de auditoria, e depois fechado sem merge. **Envolve push e PR no GitHub, ação externa:
+é validação do revisor depois do push (V-01 e V-02 no `tasks.md`), não tarefa do implementador.** O
+implementador entrega a configuração que torna o CI vermelho e prova o equivalente localmente
+(`dotnet build` falhando com `NU1903` sem a exceção, T057; `npm audit` saindo com código 1 diante de
+um pacote vulnerável, T070).
 
 **Fora do escopo, sugestão**: os workflows só rodam quando `src/**` muda (filtro de caminhos); um
 aviso novo sobre pacote *inalterado* não acenderia o CI. Uma execução agendada (semanal) cobriria

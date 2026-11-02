@@ -35,7 +35,9 @@ Abordagem técnica (decisões e alternativas em [research.md](research.md)):
   com privilégio a mais (FR-023: a prova falha quando a permissão sobra).
 - **Pacotes**: NuGet Audit nativo em `Directory.Build.props` (`NuGetAuditMode=all`,
   `NuGetAuditLevel=low`, NU1901–NU1904 como erro, NU1900 como erro no CI); a exceção do `SSH.NET`
-  vira dois `NuGetAuditSuppress` por GHSA só no projeto de testes. No front, `npm audit` (qualquer
+  vira dois `NuGetAuditSuppress` por GHSA só no projeto de testes. Os Dockerfiles da Api e do
+  Migrator passam a copiar o `Directory.Build.props` **antes** do `dotnet restore` (hoje copiam só
+  os `.csproj`, e a auditoria não valeria nas imagens). No front, `npm audit` (qualquer
   severidade) no `frontend-ci.yml`, e `vite` sobe dentro do `^6` (sem troca de major).
 
 | Fase | Escopo | Red (como falha primeiro) | Green |
@@ -43,7 +45,7 @@ Abordagem técnica (decisões e alternativas em [research.md](research.md)):
 | **A** | Tamanhos máximos (FR-001 a FR-008) | os testes do auxiliar e das 5 `Specification` não compilam; o teste genérico de reflexão lista todos os campos sem limite; o handler do login chama o hash/repositório com senha de 1 MB; as 4 chamadas da Api com campo gigante devolvem `401`/`201`/`200` em vez de `400` | `IsMaxLength`, constantes `MaxLength`, as 5 `Specification` com tamanho antes de formato |
 | **B** | Prova do usuário de banco (FR-019 a FR-023) | os testes de sensibilidade (`AppRoleProbe` contra papéis-canário com `CREATE` no esquema, `DELETE`, `BYPASSRLS`, associação ao migrator) **não** acusam violação enquanto o auxiliar não existe; depois de existir, o canário prova que a prova falha quando a permissão sobra | `AppRoleProbe`, `AppRolePrivilegeTests` (3 bases), `DedicatedRowLevelSecurityTests`, `CatalogReadOnlyTests` |
 | **C** | Cabeçalhos do console + HSTS + teste (FR-009 a FR-018) | o teste do Vitest não acha `security-headers.conf`; `verify-security-headers.sh` falha (sem cabeçalhos) | `security-headers.conf`, `nginx.conf` com `map`/`include`/`proxy_hide_header`, `Dockerfile` copia o trecho, passo no `frontend-ci.yml`, README |
-| **D** | Pacotes e CI (FR-024 a FR-030) | `npm audit` sai com código 1 (2 high); com `Directory.Build.props` e sem o suppress o `dotnet build` falha com `NU1903` no `SSH.NET` | `npm audit fix` (`vite` 6.4.x), `package.json` com piso novo, suppress por GHSA no projeto de testes, passos de auditoria nos dois workflows, PRs-rascunho de prova |
+| **D** | Pacotes e CI (FR-024 a FR-030) | `npm audit` sai com código 1 (2 high); com `Directory.Build.props` e sem o suppress o `dotnet build` falha com `NU1903` no `SSH.NET` | `npm audit fix` (`vite` 6.4.x), `package.json` com piso novo, suppress por GHSA no projeto de testes, `COPY Directory.Build.props` nos dois Dockerfiles, passos de auditoria nos dois workflows. A prova no GitHub (PRs em rascunho com pacote vulnerável) é **validação do revisor** depois do push |
 
 Linha de base: a spec 04 fechou a suíte com o total registrado no `tasks.md` dela; **a primeira
 tarefa do `tasks.md` desta spec mede e anota** os números de backend e de front antes de qualquer
@@ -108,7 +110,7 @@ tenant. Alcance: 5 `Specification` (4 de `AccountContext` com texto + 1 de `User
 | **X. LGPD** | Passa. Nenhum dado pessoal coletado, guardado ou logado; os limites do cadastro de pessoas só restringem entrada. |
 | **XI. Auditoria** | Passa. Nenhum use case de escrita novo nem alterado em comportamento. Recusas `400` por tamanho não geram evento (são validação de entrada; auditoria de login é da spec 07). |
 | **XII. Permissões** | Passa. Nenhuma permissão nova; nenhum endpoint novo. |
-| **XIII. Escalabilidade** | Passa. Zero ida ao banco nova, zero estado em memória novo, nenhuma consulta nova (lista de consultas novas: **nenhuma**). Sem caminho crítico novo; o login passa a recusar entrada enorme **antes** do trabalho caro. Não há cenário k6 novo porque nenhum caminho crítico é criado ou piorado; o cenário de login da spec 04 segue valendo. |
+| **XIII. Escalabilidade** | ⚠ 1 exceção. Zero ida ao banco nova, zero estado em memória novo, nenhuma consulta nova (lista de consultas novas: **nenhuma**); o login passa a recusar entrada enorme **antes** do trabalho caro (não piora, melhora o pior caso). **Mas** a spec altera o `Specification` do login, que é caminho crítico, e a constituição exige cenário k6 para quem o altera: sem cenário k6 aqui (o k6 só existe a partir da spec 06; a linha de base da 06 cobre o login). Mesma exceção da spec 04; ver Complexity Tracking. |
 | **Idioma/estilo** | Passa. Artefatos em português; código e banco em inglês; mensagens ao usuário em português com acento. |
 
 **Legado conhecido que esta spec resolve** (a retirada do texto da constituição é por emenda do
@@ -116,8 +118,15 @@ dono do projeto, fora desta spec, FR-032): `src/Frontend/nginx.conf` sem HSTS ne
 segurança; CI do backend e do frontend sem verificação de pacotes vulneráveis (e as 2
 vulnerabilidades `high` do front).
 
-**Reavaliação depois do design (Fase 1)**: sem novas violações. As duas ressalvas abaixo seguem
-justificadas e uma proposta de emenda PATCH é registrada em research R-12.
+**Reavaliação depois do design (Fase 1)**: sem violações novas. As ressalvas de Complexity Tracking
+seguem justificadas (ferramenta de auditoria, k6 só na spec 06, e as duas de Test-First). A emenda
+PATCH do R-12 está **aprovada pelo dono** e será aplicada pelo revisor logo após o merge desta spec.
+
+**Limite da prova automatizada dos cabeçalhos**: os testes automáticos provam o texto da CSP, o
+hash do script do tema e os cabeçalhos servidos (Vitest + `verify-security-headers.sh`). O
+**comportamento real no navegador** (script de terceiro bloqueado, console recusado em quadro e
+tema claro/escuro sem flash nem erro de CSP) é a validação **V-03 do revisor**: automatizá-la
+exigiria um pacote novo (Playwright), o que o Princípio II não permite sem justificativa.
 
 ## Estrutura do Projeto
 
@@ -147,6 +156,8 @@ Caso de referência mais parecido já implementado: **`AccountContext/UseCases/U
 ```text
 src/Backend/
 ├── Directory.Build.props                                  # NOVO: NuGetAudit (modo, nível, erros)
+├── AccessControlSystem.Api/Dockerfile                     # + COPY Directory.Build.props antes do restore
+├── AccessControlSystem.Migrator/Dockerfile                # + COPY Directory.Build.props antes do restore
 ├── AccessControlSystem.Domain/Contexts/
 │   ├── AccountContext/ValueObjects/{Email,Password}.cs    # + public const int MaxLength
 │   └── UserContext/ValueObjects/{Name,Telephone,Rg,Cpf,PasswordAccess}.cs   # + MaxLength
@@ -164,9 +175,11 @@ src/Backend/
     │   ├── AccountContext/Authenticate/AuthenticateHandlerTests.cs                       # + senha de 1 MB
     │   └── UserContext/Create/CreateSpecificationTests.cs                                # NOVO
     ├── Architecture/RequestTextLimitsTests.cs             # NOVO: reflexão sobre todos os Request (FR-007)
+    ├── Architecture/PackageAuditConfigTests.cs            # NOVO: props, exceção por GHSA, Dockerfiles e workflows
     ├── Api/InputLimitsApiTests.cs                         # NOVO: 4 endpoints com campo gigante → 400
     └── Infrastructure/
-        ├── Fixtures/AppRoleProbe.cs                       # NOVO: consultas de privilégio + papéis-canário
+        ├── Fixtures/AppRoleProbe.cs                       # NOVO: consultas de privilégio
+        ├── Fixtures/CanaryRole.cs                         # NOVO: papel-canário (nome único, NOLOGIN, DROP OWNED + DROP ROLE ao final)
         └── Tenancy/
             ├── AppRolePrivilegeTests.cs                   # NOVO: DDL/atributos/propriedade nas 3 bases
             ├── CatalogReadOnlyTests.cs                    # NOVO: INSERT/UPDATE/DELETE/TRUNCATE negados
@@ -228,6 +241,7 @@ exposto a mais. Mensagens de erro não ecoam o valor recebido (só o nome do cam
 
 | Violação | Por que é necessária | Alternativa mais simples rejeitada porque |
 |---|---|---|
-| **IX / Fluxo**: a constituição cita `dotnet list package --vulnerable` como verificação do CI; este plano usa o **NuGet Audit nativo** (`NuGetAuditMode=all`, avisos de segurança como erro) | O NuGet Audit falha no *restore* (portanto em `dotnet build`, em `dotnet test` e nos `docker build`), cobre todos os projetos e transitivos sem interpretar texto, e a exceção é por GHSA com comentário ao lado. O `dotnet list package --vulnerable` só imprime texto e sai com 0 mesmo com vulnerabilidade, exigindo parsing frágil da saída | Fazer parsing da saída do `dotnet list` é frágil (idioma da saída: o próprio ambiente imprime em português) e cobre menos. **O requisito (CI falha com pacote vulnerável) é atendido por mecanismo equivalente e mais forte**; proposta de emenda PATCH em research R-12 |
+| **IX / Fluxo**: a constituição cita `dotnet list package --vulnerable` como verificação do CI; este plano usa o **NuGet Audit nativo** (`NuGetAuditMode=all`, avisos de segurança como erro) | O NuGet Audit falha no *restore* (portanto em `dotnet build`, em `dotnet test` e nos `docker build`), cobre todos os projetos e transitivos sem interpretar texto, e a exceção é por GHSA com comentário ao lado. O `dotnet list package --vulnerable` só imprime texto e sai com 0 mesmo com vulnerabilidade, exigindo parsing frágil da saída. Além disso, **não respeita o `NuGetAuditSuppress`**: o `SSH.NET` continuaria aparecendo e o comando não distingue o que é exceção justificada do que é aviso novo, então não serve como gate | Fazer parsing da saída do `dotnet list` é frágil (idioma da saída: o próprio ambiente imprime em português) e cobre menos. **O requisito (CI falha com pacote vulnerável) é atendido por mecanismo equivalente e mais forte**. **Decisão do dono (2026-11-02): a emenda PATCH do R-12 está APROVADA** e será aplicada pelo revisor logo após o merge desta spec, junto com a retirada dos itens do "Legado conhecido"; por isso o `dotnet list package --vulnerable` **não** entra como gate no `tasks.md` |
+| **XIII**: sem cenário k6 para o login, cujo `Specification` esta spec altera | O k6 só existe a partir da spec 06; a linha de base da 06 cobre o login. A alteração só **recusa mais cedo** (não acrescenta ida ao banco nem trabalho) | Criar o k6 aqui antecipa a spec 06 (carga de referência, ambiente de medição). Mesma exceção registrada na spec 04. Revisão: spec 06 |
 | **VII**: os testes da Fase B não nascem falhando | Não há comportamento novo: o `acs_app` já está correto. Os testes **provam** e protegem contra regressão (FR-023) | Mudar as permissões só para o teste falhar seria artificial; em vez disso, os **papéis-canário** (privilégio a mais de propósito, em banco isolado) provam que cada sonda falha quando a permissão sobra, e isso é o "Red" |
 | **VII**: `UserContext/Create` ganha só `SpecificationTests`, sem `HandlerTests` nem `RepositoryTests` | O `Handler` dele é uma classe vazia (legado; a spec 11 reescreve o use case) e o use case não está exposto na Api: não há handler nem repositório para testar | Criar handler/repositório aqui seria escopo da spec 11 e contrariaria "specs curtas" |

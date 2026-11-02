@@ -364,7 +364,9 @@ conferir que o CI do backend, ou do frontend, fica vermelho.
   usadas só para desenvolvimento e build contam, pois executam na máquina de quem constrói.
 - **FR-026**: Uma exceção DEVE ser explícita e versionada: identifica o pacote e o aviso exato
   (não o pacote inteiro), o escopo a que se aplica (por exemplo, só o projeto de testes) e traz a
-  justificativa escrita ao lado. A presença e a qualidade da justificativa são conferidas na
+  justificativa escrita ao lado. Hoje **só o NuGet tem mecanismo de exceção** (um item por aviso, no
+  projeto afetado); no npm não existe nenhuma exceção, e, se um dia for preciso, ela entra por
+  allowlist por GHSA, em arquivo versionado, com a justificativa ao lado. A presença e a qualidade da justificativa são conferidas na
   revisão do PR (a verificação do CI não as valida). Um aviso novo no mesmo pacote DEVE falhar
   mesmo que um aviso anterior dele esteja na lista.
 - **FR-027**: A exceção hoje existente (pacote indireto trazido pela biblioteca de contêineres de

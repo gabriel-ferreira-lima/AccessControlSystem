@@ -52,7 +52,7 @@ errada).
 
 ```bash
 cd src/Backend
-dotnet test Backend.slnx --filter "FullyQualifiedName~AppRolePrivilege|FullyQualifiedName~CatalogReadOnly|FullyQualifiedName~DedicatedRowLevelSecurity|FullyQualifiedName~SchemaContract|FullyQualifiedName~RowLevelSecurity"
+dotnet test Backend.slnx --filter "FullyQualifiedName~AppRolePrivilege|FullyQualifiedName~CatalogReadOnly|FullyQualifiedName~DedicatedRowLevelSecurity|FullyQualifiedName~AppRoleProbeCanary|FullyQualifiedName~SchemaContract|FullyQualifiedName~RowLevelSecurity"
 ```
 
 Esperado: verde nas três bases. Os testes de **canário** mostram que, dado um privilégio a mais, a
@@ -111,7 +111,11 @@ dotnet build Backend.slnx
 Prova da exceção por aviso: remova (temporariamente) um dos dois `NuGetAuditSuppress` do projeto de
 testes e rode `dotnet restore`; deve falhar com `NU1903`. Restaure a linha.
 
-### Prova de CI vermelho (PR descartável) — exige confirmação antes do push
+### Prova de CI vermelho (PR descartável) — validação do **revisor**, depois do push
+
+Não é tarefa do implementador (exige push e PR no GitHub). O implementador prova localmente que, sem
+a exceção, o `dotnet build` falha com `NU1903`, e que `npm audit` sai com código 1 com um pacote
+vulnerável.
 
 1. Branch `tmp/vuln-check-backend` a partir da branch da feature, acrescentando um
    `PackageReference` vulnerável conhecido (ex.: `Newtonsoft.Json 12.0.3`) a um projeto; PR em

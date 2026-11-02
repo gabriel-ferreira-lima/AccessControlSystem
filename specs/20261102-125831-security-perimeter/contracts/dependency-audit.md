@@ -4,6 +4,11 @@
 
 ## Regra
 
+> `dotnet list package --vulnerable` **não** é gate: sai com código 0 mesmo com vulnerabilidade e não
+> respeita o `NuGetAuditSuppress`. O gate é o NuGet Audit no *restore* (research R-12). A emenda
+> PATCH da constituição que alinha o texto a isso está aprovada e será aplicada pelo revisor logo
+> após o merge desta spec.
+
 O CI falha quando há pacote com vulnerabilidade conhecida, direto ou transitivo, em **qualquer
 severidade**, exceto exceções registradas. Se a base de avisos não puder ser consultada, o CI
 falha (nunca "passa em silêncio").
@@ -16,6 +21,7 @@ falha (nunca "passa em silêncio").
 | Auditoria | `NuGetAudit=true`, `NuGetAuditMode=all` (inclui transitivos), `NuGetAuditLevel=low` |
 | Falha | `WarningsAsErrors`: `NU1901;NU1902;NU1903;NU1904` sempre; `NU1900` (falha ao consultar os avisos) quando `CI=true` |
 | Quando roda | em todo *restore*: `dotnet restore`, `dotnet build`, `dotnet test`, `docker build` das imagens |
+| Dockerfiles | a Api e o Migrator copiam **só os `.csproj`** antes do `dotnet restore`; por isso ambos passam a ter `COPY Directory.Build.props ./` **antes** do restore (sem isso a auditoria não valeria nas imagens). Travado por `PackageAuditConfigTests`. Dentro do `docker build` não há `CI`, então o `NU1900` não é erro ali |
 | Passo do CI | `dotnet restore Backend.slnx` explícito antes do build (nome claro no log) |
 
 ### Exceção (única hoje)
@@ -29,7 +35,9 @@ No `AccessControlSystem.Tests.csproj`, e só nele:
 <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-mggc-4xg6-vcxf" />
 ```
 
-Substitui o `<NoWarn>$(NoWarn);NU1903</NoWarn>` geral, que sai. Aviso novo (outro GHSA), mesmo no
+Substitui o `<NoWarn>$(NoWarn);NU1903</NoWarn>` geral, que sai. **Não existe fallback para
+`NoWarn`**: se o `NuGetAuditSuppress` por URL do GHSA não silenciar os avisos do `SSH.NET`, o
+implementador **para e reporta a saída real** (a FR-027 proíbe a supressão geral). Aviso novo (outro GHSA), mesmo no
 `SSH.NET`, falha. Se uma versão corrigida do Testcontainers existir, a exceção é removida em vez de
 mantida.
 
@@ -70,5 +78,7 @@ parar e reportar.
 
 PR em **rascunho**, nunca integrado, por ecossistema, com um pacote vulnerável conhecido; o CI do
 passo de auditoria precisa ficar **vermelho**; depois o PR é fechado sem merge. Registrar os links
-dos dois PRs e das duas execuções no `tasks.md`. Exige push e abertura de PR no GitHub: depende de
-confirmação do Gabriel.
+dos dois PRs e das duas execuções no `tasks.md`. Exige push e abertura de PR no GitHub: **é
+validação do revisor depois do push (V-01 e V-02), não tarefa do implementador**. O implementador
+prova o equivalente localmente: sem a exceção, o `dotnet build` falha com `NU1903`; com um pacote
+vulnerável, o `npm audit` sai com código 1.

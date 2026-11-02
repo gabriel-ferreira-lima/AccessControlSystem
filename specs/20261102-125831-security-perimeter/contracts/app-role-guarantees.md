@@ -19,8 +19,8 @@ valendo; este contrato acrescenta as de abuso abaixo.
 | P6 | Sem atributos perigosos: superusuário, `CREATEDB`, `CREATEROLE`, `REPLICATION`, `BYPASSRLS` | ✔ | ✔ | ✔ |
 | P7 | Não é dono do banco, do esquema `public` nem de nenhuma tabela; não é membro de `acs_migrator` | ✔ | ✔ | ✔ |
 | P8 | Sem `CREATE` no esquema `public` | ✔ | ✔ | ✔ |
-| P9 | Privilégios por tabela exatamente: `SELECT` (catálogo) / `SELECT, INSERT, UPDATE` (tenant) | ✔ | ✔ | ✔ |
-| P10 | `INSERT`, `UPDATE` e `DELETE` negados em toda tabela do catálogo (só leitura) | ✔ | — | — |
+| P9 | Nenhum privilégio de tabela fora do perfil além de `DELETE`/`TRUNCATE` (P3) e de escrita no catálogo (P10): ex.: `REFERENCES`, `TRIGGER`. Perfil: `SELECT` (catálogo) / `SELECT, INSERT, UPDATE` (tenant) | ✔ | ✔ | ✔ |
+| P10 | `INSERT` e `UPDATE` negados em toda tabela do catálogo (só leitura; o `DELETE` é coberto por P3) | ✔ | — | — |
 | R1 | Com o tenant A informado, leitura da tabela inteira sem filtro devolve só o tenant A | — | ✔ (spec 01) | ✔ |
 | R2 | Sem tenant informado, leitura devolve 0 linhas e `UPDATE` afeta 0 | — | ✔ (spec 01) | ✔ |
 | R3 | Com o tenant A informado, `INSERT`/`UPDATE` com `tenant_id` do tenant B é recusado | — | ✔ (spec 01) | ✔ |
@@ -40,14 +40,27 @@ em um banco. A suíte a exercita de dois lados:
 | Canário | Privilégio indevido | Violação esperada |
 |---|---|---|
 | `canary_ddl` | `CREATE` no esquema `public` | P8 |
-| `canary_delete` | `DELETE` (e `TRUNCATE`) em uma tabela | P3 / P9 |
+| `canary_delete` | `DELETE` e `TRUNCATE` em uma tabela | **só** P3 (nunca P9) |
+| `canary_extra` | `REFERENCES` e `TRIGGER` em uma tabela | **só** P9 |
 | `canary_bypass` | atributo `BYPASSRLS` | P6 |
 | `canary_owner` | dono de uma tabela | P7 |
-| `canary_member` | membro de outro papel com DDL | P7 |
-| `canary_catalog_write` | `INSERT` numa tabela do catálogo | P9 / P10 |
+| `canary_member` | membro de `acs_migrator` | P7 |
+| `canary_catalog_write` | `INSERT` e `UPDATE` numa tabela do catálogo | **só** P10 (nunca P9) |
 
-Os canários são criados e removidos pelo teste (nomes únicos por execução, papel do cluster
-apagado no fim), sem tocar no `acs_app` compartilhado pelo resto da suíte.
+**Um privilégio, um código** (classificação da sonda, nesta ordem): `DELETE`/`TRUNCATE` → só `P3`, em
+qualquer perfil; `INSERT`/`UPDATE` fora do perfil (só no catálogo) → só `P10`; qualquer outro
+privilégio fora do perfil (`REFERENCES`, `TRIGGER`) → só `P9`.
+
+Os bancos isolados dos canários recebem as **migrations reais** (catálogo por
+`CreateIsolatedCatalogAsync`, tenant por `CreateMigratedTenantDatabaseAsync`), nunca `CREATE TABLE` à
+mão, para o canário valer contra o esquema e os privilégios padrão reais.
+
+Papéis são do **cluster inteiro**, não do banco isolado. Os canários têm nome único por execução
+(`canary_<tipo>_<Guid:N>`), são `NOLOGIN` e são removidos no `DisposeAsync`, mesmo se a asserção
+falhar: `REASSIGN OWNED BY` e `DROP OWNED BY` em cada banco onde receberam algo, depois `DROP ROLE`.
+Cada teste confere que o seu papel sumiu de `pg_roles`, e o `DisposeAsync` da fixture confere, antes
+de descartar o contêiner, que nenhum `canary_%` sobrou na suíte inteira. Nada disso toca o `acs_app`
+compartilhado pelo resto da suíte.
 
 ## Observações
 
