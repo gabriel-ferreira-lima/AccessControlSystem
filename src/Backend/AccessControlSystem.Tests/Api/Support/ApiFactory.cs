@@ -23,6 +23,12 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
     /// <summary>Chave de teste com mais de 256 bits (a Api e os tokens de teste usam a mesma).</summary>
     public const string JwtKey = "chave-de-teste-da-api-com-mais-de-256-bits-bbbbbbbbbbbbbbbbbbbb";
 
+    /// <summary>Emissor esperado pela Api nos testes (<c>Jwt:Issuer</c>); os tokens de teste o carregam.</summary>
+    public const string JwtIssuer = "acs-testes";
+
+    /// <summary>Destinatário esperado pela Api nos testes (<c>Jwt:Audience</c>); os tokens de teste o carregam.</summary>
+    public const string JwtAudience = "acs-testes-console";
+
     private readonly Dictionary<string, string?> _settings = new();
 
     public ApiFactory(PostgresContainerFixture database)
@@ -31,6 +37,8 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
         _settings[$"TenantDatabases:{PostgresContainerFixture.SharedCatalogDatabaseName}:ConnectionString"] = database.SharedAppConnectionString;
         _settings[$"TenantDatabases:{PostgresContainerFixture.DedicatedCatalogDatabaseName}:ConnectionString"] = database.DedicatedAppConnectionString;
         _settings["Secrets:JwtPrivateKey"] = JwtKey;
+        _settings["Jwt:Issuer"] = JwtIssuer;
+        _settings["Jwt:Audience"] = JwtAudience;
         _settings["Login:DefaultTenantId"] = null;
         _settings["HttpsRedirection:Enabled"] = "false";
     }

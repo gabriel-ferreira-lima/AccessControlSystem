@@ -27,7 +27,21 @@ public static class TestTokens
     public static string WithRawTenant(Operator @operator, string tenant) =>
         Create(@operator.Id.ToString(), @operator.Email, @operator.Role, tenant);
 
-    public static string Create(string? id, string email, ERole role, string? tenant)
+    /// <summary>
+    /// Monta um token com controle total. <paramref name="issuer"/> e <paramref name="audience"/> têm como padrão o
+    /// emissor e o destinatário esperados pela Api (<see cref="ApiFactory"/>); <c>null</c> omite a claim e um texto
+    /// qualquer cria o caso errado. <paramref name="expires"/> permite um token vencido. <paramref name="algorithm"/>
+    /// troca o algoritmo de assinatura (padrão HS256) e <c>null</c> gera um token sem assinatura.
+    /// </summary>
+    public static string Create(
+        string? id,
+        string email,
+        ERole role,
+        string? tenant,
+        string? issuer = ApiFactory.JwtIssuer,
+        string? audience = ApiFactory.JwtAudience,
+        DateTime? expires = null,
+        string? algorithm = SecurityAlgorithms.HmacSha256Signature)
     {
         var identity = new ClaimsIdentity();
         if (id is not null) identity.AddClaim(new Claim("Id", id));
@@ -35,14 +49,20 @@ public static class TestTokens
         identity.AddClaim(new Claim(ClaimTypes.Role, role.ToString()));
         if (tenant is not null) identity.AddClaim(new Claim("tenant", tenant));
 
+        var expiresAt = expires ?? DateTime.UtcNow.AddHours(1);
+
         var handler = new JwtSecurityTokenHandler();
         var token = handler.CreateToken(new SecurityTokenDescriptor
         {
             Subject = identity,
-            Expires = DateTime.UtcNow.AddHours(1),
-            SigningCredentials = new SigningCredentials(
-                new SymmetricSecurityKey(Encoding.UTF8.GetBytes(ApiFactory.JwtKey)),
-                SecurityAlgorithms.HmacSha256Signature)
+            Issuer = issuer,
+            Audience = audience,
+            // Um token vencido precisa de NotBefore anterior ao vencimento para o handler aceitar criá-lo.
+            NotBefore = expiresAt.AddHours(-2),
+            Expires = expiresAt,
+            SigningCredentials = algorithm is null
+                ? null
+                : new SigningCredentials(new SymmetricSecurityKey(Encoding.UTF8.GetBytes(ApiFactory.JwtKey)), algorithm)
         });
         return handler.WriteToken(token);
     }

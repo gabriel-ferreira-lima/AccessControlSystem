@@ -11,10 +11,10 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
-using System.Text;
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
 
@@ -25,9 +25,17 @@ namespace AccessControlSystem.Api.Extensions {
 
         public static void AddConfiguration(this WebApplicationBuilder builder) {
 
-            // Segredo obrigatório: a Api não inicia sem a chave do JWT (a exigência de 256 bits é da spec de segurança).
+            // Segredo obrigatório: a Api não inicia sem a chave do JWT, nem com chave de menos de 32 bytes (256 bits).
             builder.Services.AddOptions<SecretsOptions>()
                 .BindConfiguration(SecretsOptions.SectionName)
+                .ValidateDataAnnotations()
+                .ValidateOnStart();
+            builder.Services.TryAddEnumerable(
+                ServiceDescriptor.Singleton<IValidateOptions<SecretsOptions>, SecretsOptionsValidator>());
+
+            // Emissor e destinatário do token: obrigatórios e validados na partida (a Api só aceita tokens com eles).
+            builder.Services.AddOptions<JwtOptions>()
+                .BindConfiguration(JwtOptions.SectionName)
                 .ValidateDataAnnotations()
                 .ValidateOnStart();
 
@@ -52,9 +60,17 @@ namespace AccessControlSystem.Api.Extensions {
                 }).AddJwtBearer(x => {
                     x.RequireHttpsMetadata = false;
                     x.SaveToken = true;
+                    // Emissor, destinatário e chave vêm das opções (Configure abaixo). Aqui ficam as regras fixas: só HS256,
+                    // validade obrigatória e tolerância de relógio curta (30 s).
                     x.TokenValidationParameters = new TokenValidationParameters {
-                        ValidateIssuer = false,
-                        ValidateAudience = false
+                        ValidateIssuer = true,
+                        ValidateAudience = true,
+                        ValidateLifetime = true,
+                        RequireExpirationTime = true,
+                        RequireSignedTokens = true,
+                        ValidateIssuerSigningKey = true,
+                        ClockSkew = TimeSpan.FromSeconds(30),
+                        ValidAlgorithms = [SecurityAlgorithms.HmacSha256]
                     };
                     x.Events = new JwtBearerEvents {
                         OnMessageReceived = context => {
@@ -109,11 +125,14 @@ namespace AccessControlSystem.Api.Extensions {
                     };
                 });
 
-            // A chave vem das opções (lida quando a validação do token é montada, não na partida do builder).
+            // A chave, o emissor e o destinatário vêm das opções (lidos quando a validação do token é montada, não na
+            // partida do builder). Os mesmos bytes da chave (JwtSigningKey) assinam o token e validam a assinatura.
             builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
-                .Configure<IOptions<SecretsOptions>>((jwt, secrets) => {
-                    jwt.TokenValidationParameters.IssuerSigningKey =
-                        new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secrets.Value.JwtPrivateKey));
+                .Configure<IOptions<SecretsOptions>, IOptions<JwtOptions>>((jwtBearer, secrets, jwt) => {
+                    jwtBearer.TokenValidationParameters.IssuerSigningKey =
+                        new SymmetricSecurityKey(JwtSigningKey.GetBytes(secrets.Value.JwtPrivateKey));
+                    jwtBearer.TokenValidationParameters.ValidIssuer = jwt.Value.Issuer;
+                    jwtBearer.TokenValidationParameters.ValidAudience = jwt.Value.Audience;
                 });
 
             // Fechado por padrão (Princípio IX): todo endpoint exige usuário autenticado, sem precisar declarar.
