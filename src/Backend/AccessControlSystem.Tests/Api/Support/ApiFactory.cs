@@ -4,8 +4,10 @@ using AccessControlSystem.Infrastructure.Catalog.Models;
 using AccessControlSystem.Tests.Infrastructure.Fixtures;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace AccessControlSystem.Tests.Api.Support;
@@ -50,6 +52,30 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
     public ApiFactory WithTenantDatabase(string name, string connectionString) =>
         With($"TenantDatabases:{name}:ConnectionString", connectionString);
 
+    // "Testing" isola os testes de user-secrets e do appsettings.Development.json da máquina.
+    private string _environment = "Testing";
+    private bool _openProbe;
+
+    /// <summary>
+    /// Troca o ambiente da Api (padrão <c>Testing</c>), por exemplo para <c>Development</c> ou <c>Production</c>.
+    /// Só vale antes de a Api subir.
+    /// </summary>
+    public ApiFactory WithEnvironment(string environment)
+    {
+        _environment = environment;
+        return this;
+    }
+
+    /// <summary>
+    /// Carrega o <see cref="OpenProbeController"/> (rota sem nenhuma regra de acesso) na Api. Só vale antes de
+    /// a Api subir; sem esta chamada a rota de prova não existe.
+    /// </summary>
+    public ApiFactory WithOpenProbeEndpoint()
+    {
+        _openProbe = true;
+        return this;
+    }
+
     private readonly ConcurrentQueue<CapturedLog> _logs = new();
 
     /// <summary>Tudo o que a Api registrou no log (categoria, nível e texto, com a exceção), para conferir o que foi (ou não) logado.</summary>
@@ -57,10 +83,16 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        // "Testing" isola os testes de user-secrets e do appsettings.Development.json da máquina.
-        builder.UseEnvironment("Testing");
+        builder.UseEnvironment(_environment);
         builder.ConfigureAppConfiguration((_, configuration) => configuration.AddInMemoryCollection(_settings));
         builder.ConfigureLogging(logging => logging.AddProvider(new CapturingLoggerProvider(_logs)));
+
+        if (_openProbe)
+        {
+            builder.ConfigureTestServices(services =>
+                services.AddControllers().ConfigureApplicationPartManager(manager =>
+                    manager.ApplicationParts.Add(new OpenProbeApplicationPart())));
+        }
     }
 
     public sealed record CapturedLog(string Category, LogLevel Level, string Text);

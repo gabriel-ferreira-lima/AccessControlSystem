@@ -8,6 +8,7 @@ using AccessControlSystem.Infrastructure.Services;
 using AccessControlSystem.Infrastructure.Tenancy;
 using Flunt.Notifications;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
@@ -115,7 +116,13 @@ namespace AccessControlSystem.Api.Extensions {
                         new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secrets.Value.JwtPrivateKey));
                 });
 
-            builder.Services.AddAuthorization();
+            // Fechado por padrão (Princípio IX): todo endpoint exige usuário autenticado, sem precisar declarar.
+            // Rota anônima só com [AllowAnonymous] explícito (hoje: o login). Rota inexistente continua 404.
+            builder.Services.AddAuthorization(options => {
+                options.FallbackPolicy = new AuthorizationPolicyBuilder()
+                    .RequireAuthenticatedUser()
+                    .Build();
+            });
         }
 
         public static void AddControllersConfiguration(this WebApplicationBuilder builder) {

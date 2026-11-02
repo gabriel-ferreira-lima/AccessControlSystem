@@ -196,7 +196,7 @@ Todo cenário abaixo vira teste automatizado (`EndpointAuthorizationTests`, alim
 | `PUT v1/account/update/{id}` | Admin | 401 | 403 | 401 | 401 |
 | `PUT v1/account/activate/{id}` | Admin | 401 | 403 | 401 | 401 |
 | `PUT v1/account/deactivate/{id}` | Admin | 401 | 403 | 401 | 401 |
-| `GET /swagger/*` | só Development | 404 fora de Development | n/a | n/a | n/a |
+| `GET /swagger/*` | **anônimo, só em Development** (segunda exceção a `[AllowAnonymous]`, justificada: a documentação já era pública em desenvolvimento e nem existe fora dele) | 404 fora de Development (rota sem endpoint responde 404, não 401) | n/a | n/a | n/a |
 
 ### Casos de abuso considerados
 

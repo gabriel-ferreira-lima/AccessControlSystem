@@ -22,6 +22,7 @@ namespace AccessControlSystem.Api.Controllers {
         /// <response code="400">E-mail em formato inválido.</response>
         /// <response code="401">Credenciais inválidas ou conta desativada.</response>
         /// <response code="429">Muitas tentativas de login para este IP.</response>
+        [AllowAnonymous]
         [UseDefaultLoginTenant]
         [EnableRateLimiting("login")]
         [HttpPost("login")]

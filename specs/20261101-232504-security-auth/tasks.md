@@ -36,8 +36,8 @@
 
 | Checkpoint | Backend: aprovados / falhas / ignorados | Front: aprovados / arquivos | Observação |
 |---|---|---|---|
-| 0 (linha de base) | _preencher_ (esperado 430) | _preencher_ (esperado 238 / 26) | nada mudou |
-| A | _preencher_ | _preencher_ | |
+| 0 (linha de base) | **430** aprovados / 0 falhas / 0 ignorados (0 avisos, 0 erros) | **238** aprovados / 26 arquivos (typecheck e build ok) | medido em 2026-11-02, nada mudou |
+| A | **441** aprovados / 0 falhas / 0 ignorados (0 avisos, 0 erros) | 238 / 26 (front não tocado; valor da linha de base) | +11 testes novos (4 em `DefaultAuthorizationTests`, 7 casos em `SwaggerTests`); nenhum teste existente alterado além do TE-01 |
 | B | _preencher_ | _preencher_ | |
 | C | _preencher_ | _preencher_ | |
 | D | _preencher_ | _preencher_ | |
@@ -53,10 +53,10 @@ Regra: o número de testes **nunca diminui** entre checkpoints e cresce pelo men
 
 **Objetivo**: provar o ponto de partida **antes de qualquer mudança**. As fases seguintes são sequenciais (A → B → C → D → E1 → E2 → F), porque `TestTokens`, `ApiFactory` e `AuthenticateHandlerTests` evoluem a cada uma.
 
-- [ ] T001 **Medir a linha de base do backend** (primeira tarefa, antes de editar qualquer arquivo): `cd src/Backend && dotnet build Backend.slnx && dotnet test Backend.slnx` com o Docker ligado. Esperado: 0 avisos, 0 erros, **430 aprovados** (número da spec 03). Anotar a saída real e o número na linha "0" da tabela "Registro de números". Se falhar, parar e reportar.
-- [ ] T002 [P] **Medir a linha de base do front**: `cd src/Frontend && npm run typecheck && npm test && npm run build`. Esperado: **238 aprovados em 26 arquivos**. Anotar na tabela.
-- [ ] T003 Confirmar a branch e a árvore: `git branch --show-current` deve imprimir `20261101-232504-security-auth`, e `git status --short` só pode listar `specs/20261101-232504-security-auth/`. Confirmar o Docker (`docker info --format '{{.ServerVersion}}'`) e restaurar a ferramenta local: `dotnet tool restore` (manifesto `.config/dotnet-tools.json`, `dotnet-ef` 10.0.12).
-- [ ] T004 **Checkpoint 0**: números conferidos e anotados no `tasks.md` (se forem outros, valem como referência). Parar e reportar (regra 2).
+- [X] T001 **Medir a linha de base do backend** (primeira tarefa, antes de editar qualquer arquivo): `cd src/Backend && dotnet build Backend.slnx && dotnet test Backend.slnx` com o Docker ligado. Esperado: 0 avisos, 0 erros, **430 aprovados** (número da spec 03). Anotar a saída real e o número na linha "0" da tabela "Registro de números". Se falhar, parar e reportar.
+- [X] T002 [P] **Medir a linha de base do front**: `cd src/Frontend && npm run typecheck && npm test && npm run build`. Esperado: **238 aprovados em 26 arquivos**. Anotar na tabela.
+- [X] T003 Confirmar a branch e a árvore: `git branch --show-current` deve imprimir `20261101-232504-security-auth`, e `git status --short` só pode listar `specs/20261101-232504-security-auth/`. Confirmar o Docker (`docker info --format '{{.ServerVersion}}'`) e restaurar a ferramenta local: `dotnet tool restore` (manifesto `.config/dotnet-tools.json`, `dotnet-ef` 10.0.12).
+- [X] T004 **Checkpoint 0**: números conferidos e anotados no `tasks.md` (se forem outros, valem como referência). Parar e reportar (regra 2).
 
 ---
 
@@ -66,30 +66,30 @@ Regra: o número de testes **nunca diminui** entre checkpoints e cresce pelo men
 
 ### A.1 Fixture e ajuste de teste existente (nada disto muda produção)
 
-- [ ] T005 [US1] **FX-02**: criar `Tests/Api/Support/OpenProbeController.cs`: controller de **prova** sem nenhum atributo de acesso (`[ApiController]`, `[Route("__probe/open")]`, `GET` devolvendo `Ok()`), mais um `ApplicationPart` restrito a esse tipo (`IApplicationPartTypeProvider`). Existe só no projeto de testes e só é carregado quando pedido, para não entrar no catálogo de rotas da fase F.
-- [ ] T006 [US1] **FX-01**: em `Tests/Api/Support/ApiFactory.cs`, acrescentar `WithEnvironment(string)` (troca o ambiente de `Testing` para o pedido, antes da partida) e `WithOpenProbeEndpoint()` (registra o `ApplicationPart` do T005).
-- [ ] T007 [US1] **TE-01**: em `Tests/Api/ApiContractCompatTests.cs`, fazer `Swagger_continua_gerando_o_documento_com_os_8_endpoints` rodar com `Factory.WithEnvironment("Development")`, **sem mudar nenhuma asserção**. Ainda passa (Green preservado); sem isto ele ficaria vermelho pelo motivo certo mas na hora errada, quando o T013 chegar.
+- [X] T005 [US1] **FX-02**: criar `Tests/Api/Support/OpenProbeController.cs`: controller de **prova** sem nenhum atributo de acesso (`[ApiController]`, `[Route("__probe/open")]`, `GET` devolvendo `Ok()`), mais um `ApplicationPart` restrito a esse tipo (`IApplicationPartTypeProvider`). Existe só no projeto de testes e só é carregado quando pedido, para não entrar no catálogo de rotas da fase F.
+- [X] T006 [US1] **FX-01**: em `Tests/Api/Support/ApiFactory.cs`, acrescentar `WithEnvironment(string)` (troca o ambiente de `Testing` para o pedido, antes da partida) e `WithOpenProbeEndpoint()` (registra o `ApplicationPart` do T005).
+- [X] T007 [US1] **TE-01**: em `Tests/Api/ApiContractCompatTests.cs`, fazer `Swagger_continua_gerando_o_documento_com_os_8_endpoints` rodar com `Factory.WithEnvironment("Development")`, **sem mudar nenhuma asserção**. Ainda passa (Green preservado); sem isto ele ficaria vermelho pelo motivo certo mas na hora errada, quando o T013 chegar.
 
 ### A.2 Testes (Red)
 
-- [ ] T008 [US1] Criar `Tests/Api/DefaultAuthorizationTests.cs` (`[Collection(PostgresCollection.Name)]`, `[Trait("Category", "Integration")]`, herda `ApiTestBase`):
+- [X] T008 [US1] Criar `Tests/Api/DefaultAuthorizationTests.cs` (`[Collection(PostgresCollection.Name)]`, `[Trait("Category", "Integration")]`, herda `ApiTestBase`):
   - `Rota_sem_regra_de_acesso_responde_401_sem_token` (usa `WithOpenProbeEndpoint()`): **Red** — hoje responde `200`, pois nada é fechado por padrão.
   - `Rota_sem_regra_de_acesso_responde_200_com_token_valido`: guarda (já passa; garante que o fallback não bloqueia quem tem token).
   - `Politica_de_fallback_exige_usuario_autenticado` (resolve `IAuthorizationPolicyProvider` da fábrica e lê `GetFallbackPolicyAsync()`): **Red** — hoje é `null`.
   - `Rota_inexistente_responde_404_e_nao_401`: guarda (caso de borda da spec).
-- [ ] T009 [US1] Criar `Tests/Api/SwaggerTests.cs`:
+- [X] T009 [US1] Criar `Tests/Api/SwaggerTests.cs`:
   - `[Theory] Swagger_fora_de_development_responde_404` (`swagger/v1/swagger.json`, `swagger/index.html`, em `Testing` e em `Production`): **Red** — hoje `200`.
   - `Swagger_em_development_continua_disponivel`: guarda (já passa; é a prova de que o `404` vem da condição de ambiente e não de quebrar o Swagger).
   - `Operador_autenticado_tambem_recebe_404_no_swagger_fora_de_development`: **Red** — hoje `200`.
-- [ ] T010 [US1] **Red visto**: `dotnet test Backend.slnx --filter "FullyQualifiedName~DefaultAuthorizationTests|FullyQualifiedName~SwaggerTests"`. Devem falhar exatamente: `Rota_sem_regra_de_acesso_responde_401_sem_token`, `Politica_de_fallback_exige_usuario_autenticado` e as variantes `404` do Swagger. Os guardas passam. Registrar a saída.
+- [X] T010 [US1] **Red visto**: `dotnet test Backend.slnx --filter "FullyQualifiedName~DefaultAuthorizationTests|FullyQualifiedName~SwaggerTests"`. Devem falhar exatamente: `Rota_sem_regra_de_acesso_responde_401_sem_token`, `Politica_de_fallback_exige_usuario_autenticado` e as variantes `404` do Swagger. Os guardas passam. Registrar a saída.
 
 ### A.3 Implementação (Green)
 
-- [ ] T011 [US1] Em `Api/Extensions/BuilderExtensions.cs` (`AddJwtAuthentication`), trocar `builder.Services.AddAuthorization();` por `AddAuthorization(options => options.FallbackPolicy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build())`. Manter os `[Authorize]` e `[Authorize(Roles = "Admin")]` dos controllers como estão (spec 08).
-- [ ] T012 [US1] Em `Api/Controllers/AccountContextController.cs`, acrescentar `[AllowAnonymous]` ao `Login` (junto de `[UseDefaultLoginTenant]` e `[EnableRateLimiting("login")]`). É a **única** exceção.
-- [ ] T013 [US1] Swagger só em Development: em `Api/Program.cs`, mapear `app.MapSwagger()` e `app.MapSwaggerUI(...)` somente dentro de `if (app.Environment.IsDevelopment())`; e chamar `builder.AddSwaggerDocumentation()` somente se `builder.Environment.IsDevelopment()`.
-- [ ] T014 [US1] **Green visto**: o filtro do T010 passa por inteiro; depois `dotnet test Backend.slnx --filter "FullyQualifiedName~Tests.Api"` verde (inclui `EndpointAuthorizationTests`, `JwtTenantValidationTests`, `ApiContractCompatTests`).
-- [ ] T015 **Checkpoint A**: GATE-BACK verde; registrar os números. `git status --short` toca só: `Api/Program.cs`, `Api/Extensions/BuilderExtensions.cs`, `Api/Controllers/AccountContextController.cs`, `Tests/Api/{ApiContractCompatTests,DefaultAuthorizationTests,SwaggerTests}.cs`, `Tests/Api/Support/{ApiFactory,OpenProbeController}.cs` e este `tasks.md`. Parar (regra 2).
+- [X] T011 [US1] Em `Api/Extensions/BuilderExtensions.cs` (`AddJwtAuthentication`), trocar `builder.Services.AddAuthorization();` por `AddAuthorization(options => options.FallbackPolicy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build())`. Manter os `[Authorize]` e `[Authorize(Roles = "Admin")]` dos controllers como estão (spec 08).
+- [X] T012 [US1] Em `Api/Controllers/AccountContextController.cs`, acrescentar `[AllowAnonymous]` ao `Login` (junto de `[UseDefaultLoginTenant]` e `[EnableRateLimiting("login")]`). É a **única** exceção.
+- [X] T013 [US1] Swagger só em Development: em `Api/Program.cs`, mapear `app.MapSwagger()` e `app.MapSwaggerUI(...)` somente dentro de `if (app.Environment.IsDevelopment())`; e chamar `builder.AddSwaggerDocumentation()` somente se `builder.Environment.IsDevelopment()`. **Ajustes descobertos na implementação (o Green só fechou com eles; ver o Red do T010 e a falha do primeiro Green):** (a) a política de fallback do T011 também fecha as rotas do Swagger em Development, que a spec mantém disponíveis sem token ("como hoje"); por isso `MapSwagger()` e `MapSwaggerUI(...)` levam `.AllowAnonymous()`, **só dentro** do `if (IsDevelopment())` — é a segunda exceção anônima (a primeira é o login) e fica justificada no `plan.md`; (b) rota **sem endpoint** (incluindo `/swagger/*` fora de Development) passaria de `404` para `401` pela mesma política, contra o FR-003 e o caso de borda "Rota inexistente"; por isso um middleware simples antes de `UseAuthentication()` responde `404` quando `GetEndpoint()` é nulo. Nenhum teste foi alterado: os 12 testes da fase passam como escritos.
+- [X] T014 [US1] **Green visto**: o filtro do T010 passa por inteiro; depois `dotnet test Backend.slnx --filter "FullyQualifiedName~Tests.Api"` verde (inclui `EndpointAuthorizationTests`, `JwtTenantValidationTests`, `ApiContractCompatTests`).
+- [X] T015 **Checkpoint A**: GATE-BACK verde; registrar os números. `git status --short` toca só: `Api/Program.cs`, `Api/Extensions/BuilderExtensions.cs`, `Api/Controllers/AccountContextController.cs`, `Tests/Api/{ApiContractCompatTests,DefaultAuthorizationTests,SwaggerTests}.cs`, `Tests/Api/Support/{ApiFactory,OpenProbeController}.cs` e este `tasks.md`. Parar (regra 2).
 
 ---
 
