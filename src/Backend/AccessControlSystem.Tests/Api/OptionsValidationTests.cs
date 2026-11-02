@@ -96,6 +96,37 @@ public class OptionsValidationTests : ApiTestBase
         Assert.Equal(401, (int)response.StatusCode);
     }
 
+    // FR-016: o limite de login por origem é configurável, mas com piso e teto, para um valor errado não desligar a proteção.
+    [Theory]
+    [InlineData("LoginProtection:Ip:PermitLimit", "0")]
+    [InlineData("LoginProtection:Ip:PermitLimit", "1001")]
+    [InlineData("LoginProtection:Ip:WindowSeconds", "0")]
+    [InlineData("LoginProtection:Ip:WindowSeconds", "3601")]
+    public void Api_nao_inicia_com_limite_por_ip_fora_da_faixa(string key, string value)
+    {
+        Factory.With(key, value);
+
+        var exception = Assert.ThrowsAny<Exception>(() => Factory.CreateClient());
+
+        var validation = FindValidationException(exception);
+        Assert.Contains(validation.Failures, f => f.Contains(key));
+    }
+
+    // Guarda de limite: os extremos válidos sobem.
+    [Theory]
+    [InlineData("LoginProtection:Ip:PermitLimit", "1")]
+    [InlineData("LoginProtection:Ip:PermitLimit", "1000")]
+    [InlineData("LoginProtection:Ip:WindowSeconds", "1")]
+    [InlineData("LoginProtection:Ip:WindowSeconds", "3600")]
+    public async Task Api_inicia_com_os_extremos_validos_do_limite_por_ip(string key, string value)
+    {
+        Factory.With(key, value);
+
+        var response = await GetAsync("v1/account/get-me");
+
+        Assert.Equal(401, (int)response.StatusCode);
+    }
+
     [Fact]
     public void Api_nao_inicia_sem_a_connection_string_do_catalogo()
     {

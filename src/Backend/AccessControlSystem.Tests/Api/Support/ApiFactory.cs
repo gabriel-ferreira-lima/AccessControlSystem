@@ -1,7 +1,9 @@
 using System.Collections.Concurrent;
+using System.Net;
 using AccessControlSystem.Application.SharedContext.Tenancy;
 using AccessControlSystem.Infrastructure.Catalog.Models;
 using AccessControlSystem.Tests.Infrastructure.Fixtures;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
@@ -63,6 +65,31 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
     // "Testing" isola os testes de user-secrets e do appsettings.Development.json da máquina.
     private string _environment = "Testing";
     private bool _openProbe;
+    private IPAddress? _remoteIp;
+
+    /// <summary>
+    /// Define o endereço remoto da conexão (<c>Connection.RemoteIpAddress</c>) ANTES de <c>UseForwardedHeaders</c>:
+    /// o TestServer não tem IP remoto, e os testes de origem confiável precisam simular o proxy ou um cliente
+    /// qualquer. Só vale antes de a Api subir.
+    /// </summary>
+    public ApiFactory WithRemoteIp(IPAddress address)
+    {
+        _remoteIp = address;
+        return this;
+    }
+
+    private sealed class RemoteIpStartupFilter(IPAddress address) : IStartupFilter
+    {
+        public Action<IApplicationBuilder> Configure(Action<IApplicationBuilder> next) => app =>
+        {
+            app.Use((context, nextMiddleware) =>
+            {
+                context.Connection.RemoteIpAddress = address;
+                return nextMiddleware(context);
+            });
+            next(app);
+        };
+    }
 
     /// <summary>
     /// Troca o ambiente da Api (padrão <c>Testing</c>), por exemplo para <c>Development</c> ou <c>Production</c>.
@@ -94,6 +121,12 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
         builder.UseEnvironment(_environment);
         builder.ConfigureAppConfiguration((_, configuration) => configuration.AddInMemoryCollection(_settings));
         builder.ConfigureLogging(logging => logging.AddProvider(new CapturingLoggerProvider(_logs)));
+
+        if (_remoteIp is not null)
+        {
+            var address = _remoteIp;
+            builder.ConfigureTestServices(services => services.AddSingleton<IStartupFilter>(new RemoteIpStartupFilter(address)));
+        }
 
         if (_openProbe)
         {

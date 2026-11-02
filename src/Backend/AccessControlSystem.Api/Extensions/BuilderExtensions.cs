@@ -15,6 +15,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
+using System.Net;
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
 
@@ -42,6 +43,19 @@ namespace AccessControlSystem.Api.Extensions {
             // Sem ValidateOnStart de propósito: sem tenant padrão só o login é afetado (responde 401 e loga o motivo).
             builder.Services.AddOptions<LoginOptions>()
                 .BindConfiguration(LoginOptions.SectionName);
+
+            // Proxies cujos X-Forwarded-* valem: IP ou CIDR inválido derruba a partida (e a chave vai na mensagem).
+            builder.Services.AddOptions<TrustedProxyOptions>()
+                .BindConfiguration(TrustedProxyOptions.SectionName)
+                .ValidateOnStart();
+            builder.Services.TryAddEnumerable(
+                ServiceDescriptor.Singleton<IValidateOptions<TrustedProxyOptions>, TrustedProxyOptionsValidator>());
+
+            // Limite de login por origem, com piso e teto validados na partida.
+            builder.Services.AddOptions<LoginRateLimitOptions>()
+                .BindConfiguration(LoginRateLimitOptions.SectionName)
+                .ValidateDataAnnotations()
+                .ValidateOnStart();
         }
 
         public static void AddDatabase(this WebApplicationBuilder builder) {
@@ -194,14 +208,19 @@ namespace AccessControlSystem.Api.Extensions {
 
         public static void AddRateLimiting(this WebApplicationBuilder builder) {
             builder.Services.AddRateLimiter(options => {
-                options.AddPolicy("login", http =>
-                    RateLimitPartition.GetFixedWindowLimiter(
+                // Por origem: o endereço que sobra depois do UseForwardedHeaders (só confia no proxy conhecido). Origem
+                // ausente fica agrupada numa chave estável ("unknown"): o limite nunca é desligado.
+                options.AddPolicy("login", http => {
+                    var limit = http.RequestServices.GetRequiredService<IOptions<LoginRateLimitOptions>>().Value;
+
+                    return RateLimitPartition.GetFixedWindowLimiter(
                         partitionKey: http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
                         factory: _ => new FixedWindowRateLimiterOptions {
-                            PermitLimit = 20,
-                            Window = TimeSpan.FromMinutes(1),
+                            PermitLimit = limit.PermitLimit,
+                            Window = TimeSpan.FromSeconds(limit.WindowSeconds),
                             QueueLimit = 0
-                        }));
+                        });
+                });
 
                 options.OnRejected = async (context, ct) => {
                     context.HttpContext.Response.StatusCode = 429;
@@ -216,11 +235,29 @@ namespace AccessControlSystem.Api.Extensions {
         }
 
         public static void AddForwardedHeaders(this WebApplicationBuilder builder) {
-            builder.Services.Configure<ForwardedHeadersOptions>(options => {
-                options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
-                options.KnownIPNetworks.Clear();
-                options.KnownProxies.Clear();
-            });
+            builder.Services.AddOptions<ForwardedHeadersOptions>()
+                .Configure<IOptions<TrustedProxyOptions>>((options, trusted) => {
+                    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+
+                    // Só o último salto (o que o proxy conhecido acrescentou) conta; endereços forjados à esquerda são ignorados.
+                    options.ForwardLimit = 1;
+
+                    // NUNCA Clear(): no ASP.NET Core, KnownProxies e KnownIPNetworks AMBAS vazias significam "confiar em
+                    // qualquer origem", e aí qualquer cliente forja X-Forwarded-For e contorna o limite por IP. Sem
+                    // configuração valem só os padrões do framework (loopback); os valores configurados são ACRESCENTADOS.
+                    // Valor inválido já derrubou a partida (TrustedProxyOptionsValidator); aqui basta ignorá-lo.
+                    foreach (var proxy in trusted.Value.KnownProxies) {
+                        if (IPAddress.TryParse(proxy, out var address)) {
+                            options.KnownProxies.Add(address);
+                        }
+                    }
+
+                    foreach (var network in trusted.Value.KnownNetworks) {
+                        if (System.Net.IPNetwork.TryParse(network, out var parsed)) {
+                            options.KnownIPNetworks.Add(parsed);
+                        }
+                    }
+                });
         }
 
         public static void AddSwaggerDocumentation(this WebApplicationBuilder builder) {
