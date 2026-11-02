@@ -14,7 +14,7 @@ namespace AccessControlSystem.Infrastructure.Context.AccountContext.UseCases.Cre
             _context = context;
         }
 
-        public async Task<bool> AnyAsync(string email, CancellationToken cancellationToken = default) {
+        public async Task<bool> EmailExistsAsync(string email, CancellationToken cancellationToken = default) {
             return await _context.Operators.AsNoTracking().AnyAsync(x => x.Email.Address == email, cancellationToken);
         }
 

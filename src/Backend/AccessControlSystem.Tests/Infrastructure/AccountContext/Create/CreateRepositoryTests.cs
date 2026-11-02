@@ -23,16 +23,16 @@ public class CreateRepositoryTests
         new(new Email(email), new Password("Str0ng!Pass"), ERole.Operator);
 
     [Fact]
-    public async Task AnyAsync_false_quando_o_email_nao_existe()
+    public async Task EmailExistsAsync_false_quando_o_email_nao_existe()
     {
         await using var context = _fixture.CreateContext();
         var repository = new Repository(context);
 
-        Assert.False(await repository.AnyAsync(UniqueEmail()));
+        Assert.False(await repository.EmailExistsAsync(UniqueEmail()));
     }
 
     [Fact]
-    public async Task AnyAsync_true_depois_de_salvar()
+    public async Task EmailExistsAsync_true_depois_de_salvar()
     {
         var email = UniqueEmail();
         await using var context = _fixture.CreateContext();
@@ -40,7 +40,7 @@ public class CreateRepositoryTests
 
         await repository.SaveAsync(NewOperator(email));
 
-        Assert.True(await repository.AnyAsync(email));
+        Assert.True(await repository.EmailExistsAsync(email));
     }
 
     [Fact]
@@ -110,6 +110,6 @@ public class CreateRepositoryTests
 
         await using var context = _fixture.CreateContext();   // tenant padrão da fixture
 
-        Assert.False(await new Repository(context).AnyAsync(email));
+        Assert.False(await new Repository(context).EmailExistsAsync(email));
     }
 }

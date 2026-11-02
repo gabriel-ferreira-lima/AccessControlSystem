@@ -28,44 +28,44 @@ public class UpdateMeRepositoryTests
     }
 
     [Fact]
-    public async Task GetUserById_devolve_o_operador()
+    public async Task GetOperatorByIdAsync_devolve_o_operador()
     {
         var seeded = await SeedOperatorAsync(UniqueEmail());
         await using var context = _fixture.CreateContext();
 
-        var found = await new Repository(context).GetUserById(seeded.Id);
+        var found = await new Repository(context).GetOperatorByIdAsync(seeded.Id);
 
         Assert.NotNull(found);
         Assert.Equal(seeded.Id, found!.Id);
     }
 
     [Fact]
-    public async Task GetUserById_null_quando_nao_existe()
+    public async Task GetOperatorByIdAsync_null_quando_nao_existe()
     {
         await using var context = _fixture.CreateContext();
 
-        Assert.Null(await new Repository(context).GetUserById(Guid.NewGuid()));
+        Assert.Null(await new Repository(context).GetOperatorByIdAsync(Guid.NewGuid()));
     }
 
     [Fact]
-    public async Task CheckIfEmailIsNotUsed_true_quando_outro_operador_tem_o_email()
+    public async Task EmailExistsAsync_true_quando_outro_operador_tem_o_email()
     {
         var other = await SeedOperatorAsync(UniqueEmail());
         var target = await SeedOperatorAsync(UniqueEmail());
         await using var context = _fixture.CreateContext();
 
-        var emUso = await new Repository(context).CheckIfEmailIsNotUsed(other.Email.Address, target.Id);
+        var emUso = await new Repository(context).EmailExistsAsync(other.Email.Address, target.Id);
 
         Assert.True(emUso);
     }
 
     [Fact]
-    public async Task CheckIfEmailIsNotUsed_false_para_o_proprio_email()
+    public async Task EmailExistsAsync_false_para_o_proprio_email()
     {
         var op = await SeedOperatorAsync(UniqueEmail());
         await using var context = _fixture.CreateContext();
 
-        var emUso = await new Repository(context).CheckIfEmailIsNotUsed(op.Email.Address, op.Id);
+        var emUso = await new Repository(context).EmailExistsAsync(op.Email.Address, op.Id);
 
         Assert.False(emUso);
     }
@@ -79,14 +79,14 @@ public class UpdateMeRepositoryTests
         await using (var context = _fixture.CreateContext())
         {
             var repository = new Repository(context);
-            var tracked = await repository.GetUserById(op.Id);
+            var tracked = await repository.GetOperatorByIdAsync(op.Id);
             tracked!.UpdateEmail(new Email(novoEmail));
             await repository.UpdateAsync(tracked);
         }
 
         await using (var verify = _fixture.CreateContext())
         {
-            var reloaded = await new Repository(verify).GetUserById(op.Id);
+            var reloaded = await new Repository(verify).GetOperatorByIdAsync(op.Id);
             Assert.Equal(novoEmail, reloaded!.Email.Address);
         }
     }
@@ -99,7 +99,7 @@ public class UpdateMeRepositoryTests
 
         await using var context = _fixture.CreateContext();
         var repository = new Repository(context);
-        var tracked = await repository.GetUserById(target.Id);
+        var tracked = await repository.GetOperatorByIdAsync(target.Id);
         tracked!.UpdateEmail(new Email(other.Email.Address));
 
         await Assert.ThrowsAsync<ConflictException>(() => repository.UpdateAsync(tracked));
@@ -115,13 +115,13 @@ public class UpdateMeRepositoryTests
         await using (var context = _fixture.CreateContext())
         {
             var repository = new Repository(context);
-            var tracked = await repository.GetUserById(meu.Id);
+            var tracked = await repository.GetOperatorByIdAsync(meu.Id);
             tracked!.UpdateEmail(new Email(deOutro.Email.Address));
             await repository.UpdateAsync(tracked);
         }
 
         await using var verify = _fixture.CreateContext();
-        Assert.Equal(deOutro.Email.Address, (await new Repository(verify).GetUserById(meu.Id))!.Email.Address);
+        Assert.Equal(deOutro.Email.Address, (await new Repository(verify).GetOperatorByIdAsync(meu.Id))!.Email.Address);
     }
 
     [Fact]
@@ -133,14 +133,14 @@ public class UpdateMeRepositoryTests
 
         await using var context = _fixture.CreateContext(tenant);
         var repository = new Repository(context);
-        var tracked = await repository.GetUserById(target.Id);
+        var tracked = await repository.GetOperatorByIdAsync(target.Id);
         tracked!.UpdateEmail(new Email(other.Email.Address));
 
         await Assert.ThrowsAsync<ConflictException>(() => repository.UpdateAsync(tracked));
     }
 
     [Fact]
-    public async Task CheckIfEmailIsNotUsed_considera_so_o_tenant_corrente()
+    public async Task EmailExistsAsync_considera_so_o_tenant_corrente()
     {
         var tenant = PostgresContainerFixture.NewTenantId();
         var doTenant = await _fixture.SeedOperatorAsync(tenant);
@@ -150,8 +150,8 @@ public class UpdateMeRepositoryTests
         await using var context = _fixture.CreateContext(tenant);
         var repository = new Repository(context);
 
-        Assert.True(await repository.CheckIfEmailIsNotUsed(doTenant.Email.Address, meu.Id));    // em uso no tenant
-        Assert.False(await repository.CheckIfEmailIsNotUsed(deOutro.Email.Address, meu.Id));    // só existe em outro tenant
+        Assert.True(await repository.EmailExistsAsync(doTenant.Email.Address, meu.Id));    // em uso no tenant
+        Assert.False(await repository.EmailExistsAsync(deOutro.Email.Address, meu.Id));    // só existe em outro tenant
     }
 
     [Fact]
@@ -163,7 +163,7 @@ public class UpdateMeRepositoryTests
         await using var context = _fixture.CreateContext();   // tenant padrão da fixture
         var repository = new Repository(context);
 
-        Assert.Null(await repository.GetUserById(deOutro.Id));
-        Assert.False(await repository.CheckIfEmailIsNotUsed(deOutro.Email.Address, meu.Id));   // o e-mail só existe em outro tenant
+        Assert.Null(await repository.GetOperatorByIdAsync(deOutro.Id));
+        Assert.False(await repository.EmailExistsAsync(deOutro.Email.Address, meu.Id));   // o e-mail só existe em outro tenant
     }
 }

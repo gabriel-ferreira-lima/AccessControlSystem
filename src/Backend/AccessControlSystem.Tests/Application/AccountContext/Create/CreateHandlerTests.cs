@@ -15,7 +15,7 @@ public class CreateHandlerTests
     public CreateHandlerTests()
     {
         _handler = new Handler(_repository);
-        _repository.AnyAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(false);
+        _repository.EmailExistsAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(false);
     }
 
     private static Request Valid() => new("user@test.com", "Str0ng!Pass", ERole.Operator);
@@ -42,7 +42,7 @@ public class CreateHandlerTests
     [Fact]
     public async Task Email_ja_existente_devolve_409_sem_persistir()
     {
-        _repository.AnyAsync(Arg.Is("user@test.com"), Arg.Any<CancellationToken>()).Returns(true);
+        _repository.EmailExistsAsync(Arg.Is("user@test.com"), Arg.Any<CancellationToken>()).Returns(true);
 
         var response = await _handler.HandleAsync(Valid());
 
@@ -81,7 +81,7 @@ public class CreateHandlerTests
         // e-mail em maiúsculas passa no Specification; o VO Email normaliza pra minúsculas
         await _handler.HandleAsync(Valid() with { Email = "USER@Test.com" });
 
-        await _repository.Received(1).AnyAsync(Arg.Is("user@test.com"), Arg.Any<CancellationToken>());
+        await _repository.Received(1).EmailExistsAsync(Arg.Is("user@test.com"), Arg.Any<CancellationToken>());
     }
 
     [Fact]

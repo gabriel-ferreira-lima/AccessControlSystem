@@ -12,7 +12,7 @@ namespace AccessControlSystem.Infrastructure.Context.AccountContext.UseCases.Dea
             _context = context;
         }
 
-        public async Task<Operator?> GetUserById(Guid id, CancellationToken cancellationToken = default) {
+        public async Task<Operator?> GetOperatorByIdAsync(Guid id, CancellationToken cancellationToken = default) {
             return await _context.Operators.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
         }
 

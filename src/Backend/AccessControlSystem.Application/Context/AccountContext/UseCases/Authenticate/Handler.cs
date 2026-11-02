@@ -26,7 +26,7 @@ namespace AccessControlSystem.Application.Context.AccountContext.UseCases.Authen
             #region 02 - Valida se o usuário existe e se a senha esta correta
             Operator? @operator;
 
-            @operator = await _repository.GetUserByEmailAsync(request.Email, cancellationToken);
+            @operator = await _repository.GetOperatorByEmailAsync(request.Email, cancellationToken);
 
             if (@operator == null || !@operator.IsActive || !@operator.Password.Verify(request.Password)) {
                 return new Response("Credenciais inválidas", 401);

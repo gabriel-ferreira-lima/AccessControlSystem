@@ -5,8 +5,8 @@ namespace AccessControlSystem.Application.Context.AccountContext.UseCases.Update
 
         Task<Operator> UpdateAsync(Operator @operator, CancellationToken cancellationToken = default);
 
-        Task<Operator?> GetUserById(Guid id, CancellationToken cancellationToken = default);
+        Task<Operator?> GetOperatorByIdAsync(Guid id, CancellationToken cancellationToken = default);
 
-        Task<bool> CheckIfEmailIsNotUsed(string email, Guid id, CancellationToken cancellationToken = default);
+        Task<bool> EmailExistsAsync(string email, Guid exceptId, CancellationToken cancellationToken = default);
     }
 }

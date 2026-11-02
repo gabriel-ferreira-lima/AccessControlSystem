@@ -3,6 +3,6 @@
 namespace AccessControlSystem.Application.Context.AccountContext.UseCases.GetMe.Contracts {
     public interface IRepository {
 
-        Task<Operator?> GetUserById(Guid id, CancellationToken cancellationToken = default);
+        Task<Operator?> GetOperatorByIdAsync(Guid id, CancellationToken cancellationToken = default);
     }
 }

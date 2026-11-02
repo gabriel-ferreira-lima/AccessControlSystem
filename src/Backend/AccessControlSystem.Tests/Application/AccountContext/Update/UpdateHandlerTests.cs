@@ -16,14 +16,14 @@ public class UpdateHandlerTests
     public UpdateHandlerTests()
     {
         _handler = new Handler(_repository);
-        _repository.CheckIfEmailIsNotUsed(Arg.Any<string>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+        _repository.EmailExistsAsync(Arg.Any<string>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns(false);
     }
 
     private Operator GivenExistingOperator(ERole role = ERole.Operator, string email = "op@test.com")
     {
         var op = new Operator(new Email(email), new Password("Str0ng!Pass"), role);
-        _repository.GetUserById(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns(op);
+        _repository.GetOperatorByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns(op);
         return op;
     }
 
@@ -33,13 +33,13 @@ public class UpdateHandlerTests
         var response = await _handler.HandleAsync(new Request(Guid.Empty));
 
         Assert.Equal(400, response.Status);
-        await _repository.DidNotReceive().GetUserById(Arg.Any<Guid>(), Arg.Any<CancellationToken>());
+        await _repository.DidNotReceive().GetOperatorByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
     public async Task Operador_inexistente_devolve_404()
     {
-        _repository.GetUserById(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns((Operator?)null);
+        _repository.GetOperatorByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns((Operator?)null);
 
         var response = await _handler.HandleAsync(new Request(Guid.NewGuid(), Role: ERole.Admin));
 
@@ -74,7 +74,7 @@ public class UpdateHandlerTests
     public async Task Email_em_uso_por_outro_devolve_409()
     {
         var op = GivenExistingOperator(email: "op@test.com");
-        _repository.CheckIfEmailIsNotUsed(Arg.Any<string>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+        _repository.EmailExistsAsync(Arg.Any<string>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns(true);
 
         var response = await _handler.HandleAsync(new Request(op.Id, Email: "novo@test.com"));
@@ -105,7 +105,7 @@ public class UpdateHandlerTests
 
         Assert.Equal(200, response.Status);
         await _repository.DidNotReceive()
-            .CheckIfEmailIsNotUsed(Arg.Any<string>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>());
+            .EmailExistsAsync(Arg.Any<string>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]

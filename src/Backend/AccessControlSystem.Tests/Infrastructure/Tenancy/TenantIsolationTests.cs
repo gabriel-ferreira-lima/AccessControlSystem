@@ -35,7 +35,7 @@ public class TenantIsolationTests
         };
 
         await using var context = _fixture.CreateContext(tenantA);
-        var result = await new GetRepository(context).GetOperatorList(1, 100, EActiveFilter.All, CancellationToken.None);
+        var result = await new GetRepository(context).GetOperatorListAsync(1, 100, EActiveFilter.All, CancellationToken.None);
 
         Assert.Equal(2, result.Total);
         Assert.Equal(deA.Select(o => o.Id).Order(), result.Items.Select(i => i.Id).Order());
@@ -52,7 +52,7 @@ public class TenantIsolationTests
         await using var context = _fixture.CreateContext(tenantA);
 
         // Mesma resposta de um id que não existe: nunca confirma que o registro existe em outro tenant.
-        Assert.Null(await new GetMeRepository(context).GetUserById(deB.Id));
+        Assert.Null(await new GetMeRepository(context).GetOperatorByIdAsync(deB.Id));
     }
 
     [Fact]
@@ -98,7 +98,7 @@ public class TenantIsolationTests
             var repository = new UpdateRepository(context);
 
             // Não acha para carregar...
-            Assert.Null(await repository.GetUserById(deB.Id));
+            Assert.Null(await repository.GetOperatorByIdAsync(deB.Id));
 
             // ...e mesmo com a entidade em mãos o UPDATE não alcança a linha de outro tenant.
             deB.UpdateEmail(new Email(TenantSeed.UniqueEmail("invasor")));

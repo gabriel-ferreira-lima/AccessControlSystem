@@ -12,7 +12,7 @@ namespace AccessControlSystem.Infrastructure.Context.AccountContext.UseCases.Get
         public Repository(AppDbContext context) {
             _context = context;
         }
-        public async Task<PagedResponse<OperatorItem>> GetOperatorList(
+        public async Task<PagedResponse<OperatorItem>> GetOperatorListAsync(
             int page, int size, EActiveFilter isActive, CancellationToken cancellationToken) {
 
             var query = _context.Operators.AsQueryable();

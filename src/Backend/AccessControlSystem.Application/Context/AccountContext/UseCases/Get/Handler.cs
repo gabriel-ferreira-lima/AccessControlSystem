@@ -21,7 +21,7 @@ namespace AccessControlSystem.Application.Context.AccountContext.UseCases.Get {
             #endregion
 
             #region 02 - Busca a página
-            var result = await _repository.GetOperatorList(request.Page, request.Size, request.IsActive, cancellationToken);
+            var result = await _repository.GetOperatorListAsync(request.Page, request.Size, request.IsActive, cancellationToken);
             #endregion
 
             var data = new ResponseData(

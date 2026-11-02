@@ -16,7 +16,7 @@ public class GetMeRepositoryTests
     public GetMeRepositoryTests(PostgresContainerFixture fixture) => _fixture = fixture;
 
     [Fact]
-    public async Task GetUserById_devolve_o_operador_com_dados_completos()
+    public async Task GetOperatorByIdAsync_devolve_o_operador_com_dados_completos()
     {
         var email = $"getme-{Guid.NewGuid():N}@test.com";
         Operator seeded;
@@ -28,7 +28,7 @@ public class GetMeRepositoryTests
         }
 
         await using var verify = _fixture.CreateContext();
-        var found = await new Repository(verify).GetUserById(seeded.Id);
+        var found = await new Repository(verify).GetOperatorByIdAsync(seeded.Id);
 
         Assert.NotNull(found);
         Assert.Equal(email, found!.Email.Address);
@@ -36,11 +36,11 @@ public class GetMeRepositoryTests
     }
 
     [Fact]
-    public async Task GetUserById_null_quando_nao_existe()
+    public async Task GetOperatorByIdAsync_null_quando_nao_existe()
     {
         await using var context = _fixture.CreateContext();
 
-        Assert.Null(await new Repository(context).GetUserById(Guid.NewGuid()));
+        Assert.Null(await new Repository(context).GetOperatorByIdAsync(Guid.NewGuid()));
     }
 
     [Fact]
@@ -50,6 +50,6 @@ public class GetMeRepositoryTests
 
         await using var context = _fixture.CreateContext();   // tenant padrão da fixture
 
-        Assert.Null(await new Repository(context).GetUserById(deOutro.Id));
+        Assert.Null(await new Repository(context).GetOperatorByIdAsync(deOutro.Id));
     }
 }

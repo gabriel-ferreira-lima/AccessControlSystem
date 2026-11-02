@@ -38,23 +38,23 @@ public class DeactivateRepositoryTests
     }
 
     [Fact]
-    public async Task GetUserById_devolve_o_operador()
+    public async Task GetOperatorByIdAsync_devolve_o_operador()
     {
         var seeded = await SeedOperatorAsync(ERole.Operator);
         await using var context = _fixture.CreateContext();
 
-        var found = await new Repository(context).GetUserById(seeded.Id);
+        var found = await new Repository(context).GetOperatorByIdAsync(seeded.Id);
 
         Assert.NotNull(found);
         Assert.Equal(seeded.Id, found!.Id);
     }
 
     [Fact]
-    public async Task GetUserById_null_quando_nao_existe()
+    public async Task GetOperatorByIdAsync_null_quando_nao_existe()
     {
         await using var context = _fixture.CreateContext();
 
-        Assert.Null(await new Repository(context).GetUserById(Guid.NewGuid()));
+        Assert.Null(await new Repository(context).GetOperatorByIdAsync(Guid.NewGuid()));
     }
 
     [Fact]
@@ -65,14 +65,14 @@ public class DeactivateRepositoryTests
         await using (var context = _fixture.CreateContext())
         {
             var repository = new Repository(context);
-            var tracked = await repository.GetUserById(op.Id);
+            var tracked = await repository.GetOperatorByIdAsync(op.Id);
             tracked!.Deactivate();
             await repository.DeactivateAsync(tracked);
         }
 
         await using (var verify = _fixture.CreateContext())
         {
-            var reloaded = await new Repository(verify).GetUserById(op.Id);
+            var reloaded = await new Repository(verify).GetOperatorByIdAsync(op.Id);
             Assert.False(reloaded!.IsActive);
         }
     }
@@ -125,7 +125,7 @@ public class DeactivateRepositoryTests
         await using var context = _fixture.CreateContext(tenantA);
         var repository = new Repository(context);
 
-        Assert.Null(await repository.GetUserById(adminDeB.Id));
+        Assert.Null(await repository.GetOperatorByIdAsync(adminDeB.Id));
         Assert.True(await repository.IsLastActiveAdminAsync(adminDeA.Id));   // o admin do tenant B não conta
     }
 }

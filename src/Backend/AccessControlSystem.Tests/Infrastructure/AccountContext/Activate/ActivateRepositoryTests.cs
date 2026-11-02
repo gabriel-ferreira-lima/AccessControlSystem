@@ -27,23 +27,23 @@ public class ActivateRepositoryTests
     }
 
     [Fact]
-    public async Task GetUserById_devolve_o_operador()
+    public async Task GetOperatorByIdAsync_devolve_o_operador()
     {
         var seeded = await SeedInactiveOperatorAsync();
         await using var context = _fixture.CreateContext();
 
-        var found = await new Repository(context).GetUserById(seeded.Id);
+        var found = await new Repository(context).GetOperatorByIdAsync(seeded.Id);
 
         Assert.NotNull(found);
         Assert.False(found!.IsActive);
     }
 
     [Fact]
-    public async Task GetUserById_null_quando_nao_existe()
+    public async Task GetOperatorByIdAsync_null_quando_nao_existe()
     {
         await using var context = _fixture.CreateContext();
 
-        Assert.Null(await new Repository(context).GetUserById(Guid.NewGuid()));
+        Assert.Null(await new Repository(context).GetOperatorByIdAsync(Guid.NewGuid()));
     }
 
     [Fact]
@@ -54,14 +54,14 @@ public class ActivateRepositoryTests
         await using (var context = _fixture.CreateContext())
         {
             var repository = new Repository(context);
-            var tracked = await repository.GetUserById(op.Id);
+            var tracked = await repository.GetOperatorByIdAsync(op.Id);
             tracked!.Activate();
             await repository.ActivateAsync(tracked);
         }
 
         await using (var verify = _fixture.CreateContext())
         {
-            var reloaded = await new Repository(verify).GetUserById(op.Id);
+            var reloaded = await new Repository(verify).GetOperatorByIdAsync(op.Id);
             Assert.True(reloaded!.IsActive);
         }
     }
@@ -76,7 +76,7 @@ public class ActivateRepositoryTests
         {
             var repository = new Repository(context);
 
-            Assert.Null(await repository.GetUserById(deOutro.Id));
+            Assert.Null(await repository.GetOperatorByIdAsync(deOutro.Id));
 
             // Mesmo com a entidade em mãos, o UPDATE não alcança a linha de outro tenant.
             deOutro.Activate();
@@ -84,6 +84,6 @@ public class ActivateRepositoryTests
         }
 
         await using var verify = _fixture.CreateContext(outroTenant);
-        Assert.False((await new Repository(verify).GetUserById(deOutro.Id))!.IsActive);
+        Assert.False((await new Repository(verify).GetOperatorByIdAsync(deOutro.Id))!.IsActive);
     }
 }

@@ -22,13 +22,13 @@ public class GetMeHandlerTests
         var response = await _handler.HandleAsync(new Request(Guid.Empty));
 
         Assert.Equal(400, response.Status);
-        await _repository.DidNotReceive().GetUserById(Arg.Any<Guid>(), Arg.Any<CancellationToken>());
+        await _repository.DidNotReceive().GetOperatorByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
     public async Task Operador_nao_encontrado_devolve_401()
     {
-        _repository.GetUserById(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns((Operator?)null);
+        _repository.GetOperatorByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns((Operator?)null);
 
         var response = await _handler.HandleAsync(new Request(Guid.NewGuid()));
 
@@ -39,7 +39,7 @@ public class GetMeHandlerTests
     public async Task Devolve_200_com_os_dados_do_operador()
     {
         var op = new Operator(new Email("op@test.com"), new Password("Str0ng!Pass"), ERole.Admin);
-        _repository.GetUserById(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns(op);
+        _repository.GetOperatorByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns(op);
 
         var response = await _handler.HandleAsync(new Request(op.Id));
 
