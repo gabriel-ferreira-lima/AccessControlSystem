@@ -7,7 +7,7 @@ const RAW_BASE = import.meta.env.VITE_API_BASE_URL ?? "https://localhost:7219";
 export const API_BASE_URL = RAW_BASE.replace(/\/+$/, "");
 
 const NETWORK_ERROR =
-  "Nao foi possivel se comunicar com o servidor. Verifique a conexao e tente novamente.";
+  "Não foi possível se comunicar com o servidor. Verifique a conexão e tente novamente.";
 const UNEXPECTED_ERROR = "Ocorreu um erro inesperado. Tente novamente em instantes.";
 
 /**

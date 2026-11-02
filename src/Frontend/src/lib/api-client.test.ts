@@ -201,7 +201,7 @@ describe("apiRequest: falhas de comunicação e respostas inesperadas", () => {
     await expect(call).rejects.toBeInstanceOf(ApiError);
     await expect(call).rejects.toMatchObject({
       status: 0,
-      message: "Nao foi possivel se comunicar com o servidor. Verifique a conexao e tente novamente.",
+      message: "Não foi possível se comunicar com o servidor. Verifique a conexão e tente novamente.",
       notifications: [],
     });
   });

@@ -28,13 +28,13 @@ public class AuthenticateHandlerTests
         var response = await _handler.HandleAsync(new Request("nope", "Str0ng!Pass"));
 
         Assert.Equal(400, response.Status);
-        await _repository.DidNotReceive().GetUserByEmailAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await _repository.DidNotReceive().GetOperatorByEmailAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
     public async Task Usuario_inexistente_devolve_401_sem_gerar_token()
     {
-        _repository.GetUserByEmailAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+        _repository.GetOperatorByEmailAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns((Operator?)null);
 
         var response = await _handler.HandleAsync(new Request("op@test.com", "Str0ng!Pass"));
@@ -47,7 +47,7 @@ public class AuthenticateHandlerTests
     [Fact]
     public async Task Senha_errada_devolve_401_sem_gerar_token()
     {
-        _repository.GetUserByEmailAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+        _repository.GetOperatorByEmailAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(OperatorWithPassword("Str0ng!Pass"));
 
         var response = await _handler.HandleAsync(new Request("op@test.com", "Errada1!"));
@@ -60,7 +60,7 @@ public class AuthenticateHandlerTests
     public async Task Credenciais_corretas_devolvem_200_com_token_e_dados()
     {
         var op = OperatorWithPassword("Str0ng!Pass");
-        _repository.GetUserByEmailAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(op);
+        _repository.GetOperatorByEmailAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(op);
 
         var response = await _handler.HandleAsync(new Request("op@test.com", "Str0ng!Pass"));
 
@@ -76,7 +76,7 @@ public class AuthenticateHandlerTests
     public async Task Gera_o_token_para_o_operador_autenticado()
     {
         var op = OperatorWithPassword("Str0ng!Pass");
-        _repository.GetUserByEmailAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(op);
+        _repository.GetOperatorByEmailAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(op);
 
         await _handler.HandleAsync(new Request("op@test.com", "Str0ng!Pass"));
 

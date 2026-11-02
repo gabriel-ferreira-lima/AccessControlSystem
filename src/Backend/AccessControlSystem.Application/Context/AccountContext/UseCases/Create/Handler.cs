@@ -36,7 +36,7 @@ namespace AccessControlSystem.Application.Context.AccountContext.UseCases.Create
                 #endregion
 
                 #region 03 - Verifica se o Email já existe no banco de dados
-                var exists = await _Repository.AnyAsync(email, cancellationToken);
+                var exists = await _Repository.EmailExistsAsync(email, cancellationToken);
 
                 if (exists) {
                     return new Response("Email já está em uso", 409);

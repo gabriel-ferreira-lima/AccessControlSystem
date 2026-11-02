@@ -87,7 +87,8 @@ describe("OperatorsListPage: carga, filtro, paginação e erros", () => {
     expect(within(anaRow).getByText("Ativo")).toBeInTheDocument();
     const biaRow = screen.getByRole("row", { name: /bia@example.test/ });
     expect(within(biaRow).getByText("Operador")).toBeInTheDocument();
-    expect(screen.getByText(/2 operador\(es\) · pagina 1 de 1/)).toBeInTheDocument();
+    expect(screen.getByText(/2 operador\(es\) · página 1 de 1/)).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Ações" })).toBeInTheDocument();
   });
 
   it("mostra a situação Inativo para operadores inativos", async () => {
@@ -109,8 +110,8 @@ describe("OperatorsListPage: carga, filtro, paginação e erros", () => {
     server.use(pagedList(25, queries));
     const { user } = renderList();
     await screen.findByText("p1-1@example.test");
-    await user.click(screen.getByRole("button", { name: "Proxima" }));
-    await screen.findByText(/pagina 2 de 3/);
+    await user.click(screen.getByRole("button", { name: "Próxima" }));
+    await screen.findByText(/página 2 de 3/);
     await waitFor(() => expect(screen.getByRole("combobox", { name: "Mostrar" })).toBeEnabled());
 
     await user.selectOptions(screen.getByRole("combobox", { name: "Mostrar" }), "Inativos");
@@ -118,7 +119,7 @@ describe("OperatorsListPage: carga, filtro, paginação e erros", () => {
     await waitFor(() =>
       expect(queries.at(-1)).toEqual({ page: 1, size: 10, isActive: "Inactive" }),
     );
-    await screen.findByText(/pagina 1 de 3/);
+    await screen.findByText(/página 1 de 3/);
     await waitFor(() => expect(screen.getByRole("combobox", { name: "Mostrar" })).toBeEnabled());
 
     await user.selectOptions(screen.getByRole("combobox", { name: "Mostrar" }), "Todos");
@@ -130,23 +131,23 @@ describe("OperatorsListPage: carga, filtro, paginação e erros", () => {
     const queries: ListOperatorsQuery[] = [];
     server.use(pagedList(25, queries));
     const { user } = renderList();
-    await screen.findByText(/25 operador\(es\) · pagina 1 de 3/);
-    await waitFor(() => expect(screen.getByRole("button", { name: "Proxima" })).toBeEnabled());
+    await screen.findByText(/25 operador\(es\) · página 1 de 3/);
+    await waitFor(() => expect(screen.getByRole("button", { name: "Próxima" })).toBeEnabled());
     expect(screen.getByRole("button", { name: "Anterior" })).toBeDisabled();
 
-    await user.click(screen.getByRole("button", { name: "Proxima" }));
-    await screen.findByText(/pagina 2 de 3/);
-    await waitFor(() => expect(screen.getByRole("button", { name: "Proxima" })).toBeEnabled());
+    await user.click(screen.getByRole("button", { name: "Próxima" }));
+    await screen.findByText(/página 2 de 3/);
+    await waitFor(() => expect(screen.getByRole("button", { name: "Próxima" })).toBeEnabled());
     expect(screen.getByRole("button", { name: "Anterior" })).toBeEnabled();
 
-    await user.click(screen.getByRole("button", { name: "Proxima" }));
-    await screen.findByText(/pagina 3 de 3/);
+    await user.click(screen.getByRole("button", { name: "Próxima" }));
+    await screen.findByText(/página 3 de 3/);
     await waitFor(() => expect(screen.getByRole("button", { name: "Anterior" })).toBeEnabled());
-    expect(screen.getByRole("button", { name: "Proxima" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Próxima" })).toBeDisabled();
     expect(screen.getByText("p3-1@example.test")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Anterior" }));
-    await screen.findByText(/pagina 2 de 3/);
+    await screen.findByText(/página 2 de 3/);
 
     expect(queries.map((query) => query.page)).toEqual([1, 2, 3, 2]);
   });
@@ -156,18 +157,18 @@ describe("OperatorsListPage: carga, filtro, paginação e erros", () => {
     server.use(pagedList(25, queries));
     const { user } = renderList();
     await screen.findByText("p1-1@example.test");
-    await user.click(screen.getByRole("button", { name: "Proxima" }));
-    await screen.findByText(/pagina 2 de 3/);
+    await user.click(screen.getByRole("button", { name: "Próxima" }));
+    await screen.findByText(/página 2 de 3/);
     await waitFor(() =>
-      expect(screen.getByRole("combobox", { name: "Itens por pagina" })).toBeEnabled(),
+      expect(screen.getByRole("combobox", { name: "Itens por página" })).toBeEnabled(),
     );
 
-    await user.selectOptions(screen.getByRole("combobox", { name: "Itens por pagina" }), "25");
+    await user.selectOptions(screen.getByRole("combobox", { name: "Itens por página" }), "25");
 
     await waitFor(() =>
       expect(queries.at(-1)).toEqual({ page: 1, size: 25, isActive: "Active" }),
     );
-    expect(await screen.findByText(/pagina 1 de 1/)).toBeInTheDocument();
+    expect(await screen.findByText(/página 1 de 1/)).toBeInTheDocument();
   });
 
   it("oferece os tamanhos de página 10, 25, 50 e 100", async () => {
@@ -175,7 +176,7 @@ describe("OperatorsListPage: carga, filtro, paginação e erros", () => {
     renderList();
     await screen.findByText("p1-1@example.test");
 
-    const options = within(screen.getByRole("combobox", { name: "Itens por pagina" })).getAllByRole(
+    const options = within(screen.getByRole("combobox", { name: "Itens por página" })).getAllByRole(
       "option",
     );
 
@@ -264,7 +265,7 @@ describe("OperatorsListPage: ativar e desativar", () => {
 
     const dialog = await screen.findByRole("dialog", { name: "Desativar operador?" });
     expect(dialog).toHaveTextContent("ana@example.test");
-    expect(dialog).toHaveTextContent("A conta deixara de conseguir acessar o sistema.");
+    expect(dialog).toHaveTextContent("A conta deixará de conseguir acessar o sistema.");
     expect(onDeactivate).not.toHaveBeenCalled();
 
     await user.click(within(dialog).getByRole("button", { name: "Desativar" }));
@@ -426,22 +427,22 @@ describe("OperatorsListPage: casos limite", () => {
     expect(screen.getByRole("combobox", { name: "Mostrar" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Atualizar" })).toBeDisabled();
     await screen.findByText("ana@example.test");
-    await waitFor(() => expect(screen.getByRole("button", { name: "Proxima" })).toBeEnabled());
+    await waitFor(() => expect(screen.getByRole("button", { name: "Próxima" })).toBeEnabled());
 
     await user.click(screen.getByRole("button", { name: "Atualizar" }));
 
     await waitFor(() => expect(screen.getByRole("button", { name: "Atualizar" })).toBeDisabled());
     expect(screen.getByRole("combobox", { name: "Mostrar" })).toBeDisabled();
-    expect(screen.getByRole("combobox", { name: "Itens por pagina" })).toBeDisabled();
+    expect(screen.getByRole("combobox", { name: "Itens por página" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Anterior" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Proxima" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Próxima" })).toBeDisabled();
     // A tabela anterior continua na tela, marcada como ocupada, durante a recarga.
     expect(screen.getByText("ana@example.test")).toBeInTheDocument();
 
     gate.release();
     await waitFor(() => expect(screen.getByRole("button", { name: "Atualizar" })).toBeEnabled());
     expect(screen.getByRole("combobox", { name: "Mostrar" })).toBeEnabled();
-    expect(screen.getByRole("button", { name: "Proxima" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Próxima" })).toBeEnabled();
   });
 
   it("mantém a tela como estava quando uma recarga volta com sucesso e sem dados", async () => {
@@ -513,7 +514,7 @@ describe("OperatorsListPage: falhas de comunicação", () => {
     renderList();
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Nao foi possivel se comunicar com o servidor. Verifique a conexao e tente novamente.",
+      "Não foi possível se comunicar com o servidor. Verifique a conexão e tente novamente.",
     );
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
   });

@@ -12,7 +12,7 @@ Monorepo com duas partes:
 Pré-requisito: Docker Desktop (ou Docker Engine + Compose v2).
 
 ```bash
-cp .env.example .env        # preencha JWT_PRIVATE_KEY e PASSWORD_SALT_KEY (veja o arquivo)
+cp .env.example .env        # preencha JWT_PRIVATE_KEY (veja o arquivo)
 docker compose down -v      # só na primeira vez: o volume antigo tem um banco no formato legado
 docker compose up --build
 ```
@@ -79,7 +79,7 @@ escrever nada. Os códigos de saída do Migrator são `0` (ok), `1` (alguma base
 
 Copie `.env.example` para `.env` (o `.env` não é versionado). Variáveis reconhecidas:
 `POSTGRES_PASSWORD`, `ACS_MIGRATOR_PASSWORD`, `ACS_APP_PASSWORD`, `JWT_PRIVATE_KEY`,
-`PASSWORD_SALT_KEY` (legado, sem uso no código mas ainda exigida), `DEV_ADMIN_PASSWORD`,
+`DEV_ADMIN_PASSWORD`,
 `DEV_OPERATOR_PASSWORD_A`, `DEV_OPERATOR_PASSWORD_B`, `BACKEND_PORT` (5290), `BACKEND_B_PORT`
 (5291), `BACKEND_DEDICATED_PORT` (5292), `FRONTEND_PORT` (5173), `DB_PORT` (5433) e
 `ASPNETCORE_ENVIRONMENT` (Development). Evite `;`, `=` e espaços nas senhas: elas entram em

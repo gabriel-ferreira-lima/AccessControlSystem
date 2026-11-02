@@ -3,7 +3,7 @@ using AccessControlSystem.Application.SharedContext.UseCases;
 
 namespace AccessControlSystem.Application.Context.AccountContext.UseCases.Get.Contracts {
     public interface IRepository {
-        Task<PagedResponse<OperatorItem>> GetOperatorList(
+        Task<PagedResponse<OperatorItem>> GetOperatorListAsync(
             int page, int size, EActiveFilter isActive, CancellationToken cancellationToken = default);
     }
 }

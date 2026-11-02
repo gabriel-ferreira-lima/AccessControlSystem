@@ -150,7 +150,7 @@ export function MyAccountPage() {
 
           <div className="form__actions">
             <Button type="submit" loading={submitting} loadingText="Salvando...">
-              Salvar alteracoes
+              Salvar alterações
             </Button>
             <Button type="button" variant="ghost" onClick={resetForm} disabled={submitting}>
               Limpar

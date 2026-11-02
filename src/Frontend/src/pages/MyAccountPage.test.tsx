@@ -62,7 +62,7 @@ describe("MyAccountPage: carga e envio", () => {
 
     await user.clear(screen.getByLabelText("E-mail"));
     await user.type(screen.getByLabelText("E-mail"), "novo@example.test");
-    await user.click(screen.getByRole("button", { name: "Salvar alteracoes" }));
+    await user.click(screen.getByRole("button", { name: "Salvar alterações" }));
 
     await waitFor(() => expect(onUpdate).toHaveBeenCalledTimes(1));
     expect(onUpdate.mock.calls[0][0]).toMatchObject({
@@ -83,7 +83,7 @@ describe("MyAccountPage: carga e envio", () => {
     await waitForLoaded();
 
     await user.type(screen.getByLabelText("Nova senha"), "nova-senha-123");
-    await user.click(screen.getByRole("button", { name: "Salvar alteracoes" }));
+    await user.click(screen.getByRole("button", { name: "Salvar alterações" }));
 
     await waitFor(() => expect(onUpdate).toHaveBeenCalledTimes(1));
     expect(onUpdate.mock.calls[0][0].body).toEqual({ password: "nova-senha-123" });
@@ -101,7 +101,7 @@ describe("MyAccountPage: carga e envio", () => {
     await user.clear(screen.getByLabelText("E-mail"));
     await user.type(screen.getByLabelText("E-mail"), "novo@example.test");
     await user.type(screen.getByLabelText("Nova senha"), "nova-senha-123");
-    await user.click(screen.getByRole("button", { name: "Salvar alteracoes" }));
+    await user.click(screen.getByRole("button", { name: "Salvar alterações" }));
 
     await waitFor(() => expect(onUpdate).toHaveBeenCalledTimes(1));
     expect(onUpdate.mock.calls[0][0].body).toEqual({
@@ -119,7 +119,7 @@ describe("MyAccountPage: carga e envio", () => {
     const { user } = renderAccount();
     await waitForLoaded();
 
-    await user.click(screen.getByRole("button", { name: "Salvar alteracoes" }));
+    await user.click(screen.getByRole("button", { name: "Salvar alterações" }));
 
     await waitFor(() => expect(onUpdate).toHaveBeenCalledTimes(1));
     expect(onUpdate.mock.calls[0][0].body).toEqual({});
@@ -136,7 +136,7 @@ describe("MyAccountPage: carga e envio", () => {
 
     await user.clear(screen.getByLabelText("E-mail"));
     await user.type(screen.getByLabelText("E-mail"), "   ");
-    await user.click(screen.getByRole("button", { name: "Salvar alteracoes" }));
+    await user.click(screen.getByRole("button", { name: "Salvar alterações" }));
 
     await waitFor(() => expect(onUpdate).toHaveBeenCalledTimes(1));
     expect(onUpdate.mock.calls[0][0].body).toEqual({});
@@ -163,7 +163,7 @@ describe("MyAccountPage: carga e envio", () => {
     await user.type(screen.getByLabelText("E-mail"), "novo@example.test");
     await user.type(screen.getByLabelText("Nova senha"), "nova-senha-123");
 
-    await user.click(screen.getByRole("button", { name: "Salvar alteracoes" }));
+    await user.click(screen.getByRole("button", { name: "Salvar alterações" }));
 
     expect(await screen.findByRole("status")).toHaveTextContent("Dados atualizados com sucesso");
     expect(screen.getByLabelText("Nova senha")).toHaveValue("");
@@ -183,10 +183,10 @@ describe("MyAccountPage: carga e envio", () => {
     await waitForLoaded();
     await user.type(screen.getByLabelText("Nova senha"), "nova-senha-123");
 
-    await user.click(screen.getByRole("button", { name: "Salvar alteracoes" }));
+    await user.click(screen.getByRole("button", { name: "Salvar alterações" }));
 
     await waitFor(() => expect(onUpdate).toHaveBeenCalledTimes(1));
-    await waitFor(() => expect(screen.getByRole("button", { name: "Salvar alteracoes" })).toBeEnabled());
+    await waitFor(() => expect(screen.getByRole("button", { name: "Salvar alterações" })).toBeEnabled());
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Nova senha")).toHaveValue("nova-senha-123");
@@ -207,7 +207,7 @@ describe("MyAccountPage: carga e envio", () => {
     const { user } = renderAccount();
     await waitForLoaded();
 
-    await user.click(screen.getByRole("button", { name: "Salvar alteracoes" }));
+    await user.click(screen.getByRole("button", { name: "Salvar alterações" }));
 
     expect(await screen.findByRole("button", { name: "Salvando..." })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Limpar" })).toBeDisabled();
@@ -236,7 +236,7 @@ describe("MyAccountPage: erros e limpar", () => {
     await waitForLoaded();
     await user.type(screen.getByLabelText("Nova senha"), "123");
 
-    await user.click(screen.getByRole("button", { name: "Salvar alteracoes" }));
+    await user.click(screen.getByRole("button", { name: "Salvar alterações" }));
 
     await screen.findByText("Requisição inválida");
     const alerts = screen.getAllByRole("alert");
@@ -277,7 +277,7 @@ describe("MyAccountPage: erros e limpar", () => {
     await user.clear(screen.getByLabelText("E-mail"));
     await user.type(screen.getByLabelText("E-mail"), "outro@example.test");
     await user.type(screen.getByLabelText("Nova senha"), "nova-senha-123");
-    await user.click(screen.getByRole("button", { name: "Salvar alteracoes" }));
+    await user.click(screen.getByRole("button", { name: "Salvar alterações" }));
     await screen.findByText("E-mail já cadastrado");
 
     await user.click(screen.getByRole("button", { name: "Limpar" }));
@@ -294,7 +294,7 @@ describe("MyAccountPage: erros e limpar", () => {
     );
     const { user } = renderAccount();
     await waitForLoaded();
-    await user.click(screen.getByRole("button", { name: "Salvar alteracoes" }));
+    await user.click(screen.getByRole("button", { name: "Salvar alterações" }));
     await screen.findByText("Dados atualizados");
 
     await user.click(screen.getByRole("button", { name: "Limpar" }));

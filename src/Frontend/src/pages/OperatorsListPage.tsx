@@ -155,7 +155,7 @@ export function OperatorsListPage() {
                     <th scope="col">Perfil</th>
                     <th scope="col">Status</th>
                     <th scope="col">
-                      <span className="sr-only">Acoes</span>
+                      <span className="sr-only">Ações</span>
                     </th>
                   </tr>
                 </thead>
@@ -205,13 +205,13 @@ export function OperatorsListPage() {
 
             <div className="pager">
               <p className="pager__info">
-                {data?.total ?? 0} operador(es) &middot; pagina {currentPage} de{" "}
+                {data?.total ?? 0} operador(es) &middot; página {currentPage} de{" "}
                 {Math.max(totalPages, 1)}
               </p>
 
               <div className="pager__controls">
                 <label className="toolbar-select">
-                  <span>Itens por pagina</span>
+                  <span>Itens por página</span>
                   <select
                     className="inline-select"
                     value={size}
@@ -244,7 +244,7 @@ export function OperatorsListPage() {
                     onClick={() => setPage((value) => value + 1)}
                     disabled={loading || currentPage >= totalPages}
                   >
-                    Proxima
+                    Próxima
                   </Button>
                 </div>
               </div>
@@ -261,7 +261,7 @@ export function OperatorsListPage() {
             pendingAction.type === "deactivate" ? (
               <>
                 Tem certeza que deseja desativar <strong>{pendingAction.operator.email}</strong>?
-                A conta deixara de conseguir acessar o sistema.
+                A conta deixará de conseguir acessar o sistema.
               </>
             ) : (
               <>

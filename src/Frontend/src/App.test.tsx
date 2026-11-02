@@ -11,7 +11,7 @@ import { getMeHandler, listOperatorsHandler, loginHandler } from "./test/handler
 import { renderApp } from "./test/render";
 import { server } from "./test/server";
 
-const EXPIRED_NOTICE = "Sua sessao foi encerrada. Faca login novamente.";
+const EXPIRED_NOTICE = "Sua sessão foi encerrada. Faça login novamente.";
 
 describe("App: jornadas de sessão", () => {
   it("volta ao login com aviso de sessão encerrada quando uma chamada autenticada recebe 401", async () => {
@@ -49,7 +49,7 @@ describe("App: jornadas de sessão", () => {
   it("apaga a sessão e vai ao login, sem o aviso de sessão encerrada, ao encerrar a sessão", async () => {
     const { user } = renderApp({ path: "/", session: adminSession });
 
-    await user.click(await screen.findByRole("button", { name: "Encerrar sessao" }));
+    await user.click(await screen.findByRole("button", { name: "Encerrar sessão" }));
 
     expect(
       await screen.findByRole("heading", { name: "Sistema de Controle de Acesso" }),
@@ -81,7 +81,7 @@ describe("App: navegação protegida por sessão e perfil", () => {
     async (path) => {
       renderApp({ path, session: operatorSession });
 
-      expect(await screen.findByRole("heading", { name: "Inicio" })).toBeInTheDocument();
+      expect(await screen.findByRole("heading", { name: "Início" })).toBeInTheDocument();
       expect(window.location.pathname).toBe("/");
     },
   );
@@ -89,7 +89,7 @@ describe("App: navegação protegida por sessão e perfil", () => {
   it("redireciona o Administrador de /minha-conta para o início", async () => {
     renderApp({ path: "/minha-conta", session: adminSession });
 
-    expect(await screen.findByRole("heading", { name: "Inicio" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Início" })).toBeInTheDocument();
     expect(window.location.pathname).toBe("/");
   });
 
@@ -131,33 +131,33 @@ describe("App: navegação protegida por sessão e perfil", () => {
   it("mostra a página não encontrada para um endereço inexistente e volta ao início pelo link", async () => {
     const { user } = renderApp({ path: "/rota-que-nao-existe", session: adminSession });
 
-    expect(await screen.findByRole("heading", { name: "Pagina nao encontrada" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Página não encontrada" })).toBeInTheDocument();
     await user.click(screen.getByRole("link", { name: "Voltar ao painel" }));
 
-    expect(await screen.findByRole("heading", { name: "Inicio" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Início" })).toBeInTheDocument();
     expect(window.location.pathname).toBe("/");
   });
 
   it("redireciona /login para o início quando já há sessão", async () => {
     renderApp({ path: "/login", session: adminSession });
 
-    expect(await screen.findByRole("heading", { name: "Inicio" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Início" })).toBeInTheDocument();
     expect(window.location.pathname).toBe("/");
   });
 
   it("mostra o menu lateral e o topo junto do conteúdo da rota, com link para pular ao conteúdo", async () => {
     renderApp({ path: "/", session: adminSession });
 
-    expect(await screen.findByRole("heading", { name: "Inicio" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Ir para o conteudo" })).toHaveAttribute(
+    expect(await screen.findByRole("heading", { name: "Início" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Ir para o conteúdo" })).toHaveAttribute(
       "href",
       "#conteudo",
     );
     const main = screen.getByRole("main");
     expect(main).toHaveAttribute("id", "conteudo");
-    expect(main).toContainElement(screen.getByRole("heading", { name: "Inicio" }));
-    expect(screen.getByRole("navigation", { name: "Navegacao principal" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Encerrar sessao" })).toBeInTheDocument();
+    expect(main).toContainElement(screen.getByRole("heading", { name: "Início" }));
+    expect(screen.getByRole("navigation", { name: "Navegação principal" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Encerrar sessão" })).toBeInTheDocument();
   });
 });
 

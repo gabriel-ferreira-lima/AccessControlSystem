@@ -52,7 +52,7 @@ public class GetRepositoryTests
         await using var context = _fixture.CreateContext();
         var totalReal = await context.Operators.CountAsync();
 
-        var result = await new Repository(context).GetOperatorList(page: 1, size: 2, EActiveFilter.All, CancellationToken.None);
+        var result = await new Repository(context).GetOperatorListAsync(page: 1, size: 2, EActiveFilter.All, CancellationToken.None);
 
         Assert.Equal(totalReal, result.Total);
         Assert.Equal(1, result.Page);
@@ -66,7 +66,7 @@ public class GetRepositoryTests
         await SeedOperatorsAsync(5);
         await using var context = _fixture.CreateContext();
 
-        var result = await new Repository(context).GetOperatorList(1, 5, EActiveFilter.All, CancellationToken.None);
+        var result = await new Repository(context).GetOperatorListAsync(1, 5, EActiveFilter.All, CancellationToken.None);
 
         var ids = result.Items.Select(i => i.Id).ToList();
         Assert.Equal(ids.OrderBy(id => id).ToList(), ids);
@@ -79,8 +79,8 @@ public class GetRepositoryTests
         await using var context = _fixture.CreateContext();
         var repository = new Repository(context);
 
-        var pagina1 = await repository.GetOperatorList(1, 3, EActiveFilter.All, CancellationToken.None);
-        var pagina2 = await repository.GetOperatorList(2, 3, EActiveFilter.All, CancellationToken.None);
+        var pagina1 = await repository.GetOperatorListAsync(1, 3, EActiveFilter.All, CancellationToken.None);
+        var pagina2 = await repository.GetOperatorListAsync(2, 3, EActiveFilter.All, CancellationToken.None);
 
         var interseccao = pagina1.Items.Select(i => i.Id).Intersect(pagina2.Items.Select(i => i.Id));
         Assert.Empty(interseccao);
@@ -97,7 +97,7 @@ public class GetRepositoryTests
         }
 
         await using var context = _fixture.CreateContext();
-        var result = await new Repository(context).GetOperatorList(1, 500, EActiveFilter.All, CancellationToken.None);
+        var result = await new Repository(context).GetOperatorListAsync(1, 500, EActiveFilter.All, CancellationToken.None);
 
         var item = Assert.Single(result.Items, i => i.Email == email);
         Assert.NotEqual(Guid.Empty, item.Id);
@@ -110,7 +110,7 @@ public class GetRepositoryTests
         var inactive = await SeedInactiveOperatorAsync();
 
         await using var context = _fixture.CreateContext();
-        var result = await new Repository(context).GetOperatorList(1, 500, EActiveFilter.Active, CancellationToken.None);
+        var result = await new Repository(context).GetOperatorListAsync(1, 500, EActiveFilter.Active, CancellationToken.None);
 
         Assert.DoesNotContain(result.Items, i => i.Id == inactive.Id);
     }
@@ -122,7 +122,7 @@ public class GetRepositoryTests
         var inactive = await SeedInactiveOperatorAsync();
 
         await using var context = _fixture.CreateContext();
-        var result = await new Repository(context).GetOperatorList(1, 500, EActiveFilter.Inactive, CancellationToken.None);
+        var result = await new Repository(context).GetOperatorListAsync(1, 500, EActiveFilter.Inactive, CancellationToken.None);
 
         Assert.Contains(result.Items, i => i.Id == inactive.Id);
         Assert.DoesNotContain(result.Items, i => i.Id == active.Id);
@@ -135,7 +135,7 @@ public class GetRepositoryTests
         var inactive = await SeedInactiveOperatorAsync();
 
         await using var context = _fixture.CreateContext();
-        var result = await new Repository(context).GetOperatorList(1, 500, EActiveFilter.All, CancellationToken.None);
+        var result = await new Repository(context).GetOperatorListAsync(1, 500, EActiveFilter.All, CancellationToken.None);
 
         Assert.Contains(result.Items, i => i.Id == active.Id);
         Assert.Contains(result.Items, i => i.Id == inactive.Id);
@@ -151,7 +151,7 @@ public class GetRepositoryTests
         await _fixture.SeedOperatorAsync(tenantB);
 
         await using var context = _fixture.CreateContext(tenantA);
-        var result = await new Repository(context).GetOperatorList(1, 100, EActiveFilter.All, CancellationToken.None);
+        var result = await new Repository(context).GetOperatorListAsync(1, 100, EActiveFilter.All, CancellationToken.None);
 
         Assert.Equal(1, result.Total);
         Assert.Equal(deA.Id, Assert.Single(result.Items).Id);

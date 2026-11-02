@@ -22,7 +22,7 @@ namespace AccessControlSystem.Application.Context.AccountContext.UseCases.Deacti
             #endregion
 
             #region 02 - Busca a conta a ser desativada
-            var @operator = await _repository.GetUserById(request.Id, cancellationToken);
+            var @operator = await _repository.GetOperatorByIdAsync(request.Id, cancellationToken);
 
             if (@operator == null) {
                 return new Response("Conta não encontrada", 404);

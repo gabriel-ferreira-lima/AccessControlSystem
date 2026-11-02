@@ -3,6 +3,6 @@
 namespace AccessControlSystem.Application.Context.AccountContext.UseCases.Authenticate.Contracts {
     public interface IRepository {
 
-        Task<Operator?> GetUserByEmailAsync(string email, CancellationToken cancellationToken = default);
+        Task<Operator?> GetOperatorByEmailAsync(string email, CancellationToken cancellationToken = default);
     }
 }

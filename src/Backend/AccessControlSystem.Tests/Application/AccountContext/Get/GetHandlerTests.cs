@@ -23,7 +23,7 @@ public class GetHandlerTests
 
         Assert.Equal(400, response.Status);
         await _repository.DidNotReceive()
-            .GetOperatorList(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<EActiveFilter>(), Arg.Any<CancellationToken>());
+            .GetOperatorListAsync(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<EActiveFilter>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -34,7 +34,7 @@ public class GetHandlerTests
             new(Guid.NewGuid(), "a@test.com", ERole.Admin, true),
             new(Guid.NewGuid(), "b@test.com", ERole.Operator, true),
         };
-        _repository.GetOperatorList(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<EActiveFilter>(), Arg.Any<CancellationToken>())
+        _repository.GetOperatorListAsync(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<EActiveFilter>(), Arg.Any<CancellationToken>())
             .Returns(new PagedResponse<OperatorItem>(items, 2, 2, 5));
 
         var response = await _handler.HandleAsync(new Request(Size: 2, Page: 2));
@@ -50,24 +50,24 @@ public class GetHandlerTests
     [Fact]
     public async Task Repassa_page_e_size_da_requisicao_pro_repositorio()
     {
-        _repository.GetOperatorList(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<EActiveFilter>(), Arg.Any<CancellationToken>())
+        _repository.GetOperatorListAsync(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<EActiveFilter>(), Arg.Any<CancellationToken>())
             .Returns(new PagedResponse<OperatorItem>(new List<OperatorItem>(), 3, 15, 0));
 
         await _handler.HandleAsync(new Request(Size: 15, Page: 3));
 
         await _repository.Received(1)
-            .GetOperatorList(Arg.Is(3), Arg.Is(15), Arg.Any<EActiveFilter>(), Arg.Any<CancellationToken>());
+            .GetOperatorListAsync(Arg.Is(3), Arg.Is(15), Arg.Any<EActiveFilter>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
     public async Task Repassa_o_filtro_isActive_pro_repositorio()
     {
-        _repository.GetOperatorList(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<EActiveFilter>(), Arg.Any<CancellationToken>())
+        _repository.GetOperatorListAsync(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<EActiveFilter>(), Arg.Any<CancellationToken>())
             .Returns(new PagedResponse<OperatorItem>(new List<OperatorItem>(), 1, 10, 0));
 
         await _handler.HandleAsync(new Request(IsActive: EActiveFilter.Inactive));
 
-        await _repository.Received(1).GetOperatorList(
+        await _repository.Received(1).GetOperatorListAsync(
             Arg.Any<int>(), Arg.Any<int>(), Arg.Is(EActiveFilter.Inactive), Arg.Any<CancellationToken>());
     }
 }

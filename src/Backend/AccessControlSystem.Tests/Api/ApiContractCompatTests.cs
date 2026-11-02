@@ -150,13 +150,13 @@ public class ApiContractCompatTests : ApiTestBase
         {
             var e = await ReadAsync(await SendAsync(HttpMethod.Put, "v1/account/update-me", s.OperatorToken,
                 new { email = NewEmail() }));
-            AssertSuccess(e, 200, "Usuario atualizado com sucesso", ["email", "id"]);
+            AssertSuccess(e, 200, "Usuário atualizado com sucesso", ["email", "id"]);
         },
         ["update-me: 400 nenhum campo informado"] = async s =>
         {
             var e = await ReadAsync(await SendAsync(HttpMethod.Put, "v1/account/update-me", s.OperatorToken, new { }));
-            // A mensagem tem um erro de digitação desde sempre ("Requsição"): é o contrato de hoje.
-            AssertEnvelope(e, 400, "Requsição inválida");
+            // Grafia corrigida pela spec 03 (legacy-cleanup, FR-012).
+            AssertEnvelope(e, 400, "Requisição inválida");
         },
         ["update-me: 409 e-mail já em uso"] = async s =>
         {

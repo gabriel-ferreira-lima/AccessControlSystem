@@ -28,7 +28,7 @@ export function Topbar() {
           onClick={handleSignOut}
           icon={<IconLogout />}
         >
-          Encerrar sessao
+          Encerrar sessão
         </Button>
       </div>
     </header>

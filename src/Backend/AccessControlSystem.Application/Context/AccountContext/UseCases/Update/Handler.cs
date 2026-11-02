@@ -24,7 +24,7 @@ namespace AccessControlSystem.Application.Context.AccountContext.UseCases.Update
                 #endregion
 
                 #region 02 - Busca a conta que será atualizada no banco
-                var @operator = await _repository.GetUserById(request.Id, cancellationToken);
+                var @operator = await _repository.GetOperatorByIdAsync(request.Id, cancellationToken);
 
                 if (@operator == null) {
                     return new Response("Conta não encontrada", 404);
@@ -49,7 +49,7 @@ namespace AccessControlSystem.Application.Context.AccountContext.UseCases.Update
                     var newEmail = new Email(request.Email);
 
                     if (newEmail.Address != @operator.Email.Address ) {
-                        if (await _repository.CheckIfEmailIsNotUsed(newEmail.Address, request.Id, cancellationToken)) {
+                        if (await _repository.EmailExistsAsync(newEmail.Address, request.Id, cancellationToken)) {
                             return new Response("Email já está em uso", 409);
                         }
 

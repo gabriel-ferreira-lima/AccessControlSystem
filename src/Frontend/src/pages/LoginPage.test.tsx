@@ -8,7 +8,7 @@ import { renderWithProviders } from "../test/render";
 import { apiUrl, server } from "../test/server";
 import { LoginPage } from "./LoginPage";
 
-const EXPIRED_NOTICE = "Sua sessao foi encerrada. Faca login novamente.";
+const EXPIRED_NOTICE = "Sua sessão foi encerrada. Faça login novamente.";
 
 function renderLogin(options: Parameters<typeof renderWithProviders>[1] = {}) {
   return renderWithProviders(<LoginPage />, { route: "/login", ...options });
@@ -142,6 +142,7 @@ describe("LoginPage", () => {
     expect(screen.getByRole("button", { name: "Entrar" })).toBeEnabled();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(screen.queryByText(EXPIRED_NOTICE)).not.toBeInTheDocument();
+    expect(screen.getByText("O uso deste sistema é limitado a operadores autorizados.")).toBeInTheDocument();
   });
 });
 
@@ -153,7 +154,7 @@ describe("LoginPage: falhas de comunicação", () => {
     await fillAndSubmit(user);
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Nao foi possivel se comunicar com o servidor. Verifique a conexao e tente novamente.",
+      "Não foi possível se comunicar com o servidor. Verifique a conexão e tente novamente.",
     );
     expect(window.sessionStorage.getItem("acs.session")).toBeNull();
   });

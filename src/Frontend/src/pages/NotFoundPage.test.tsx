@@ -7,8 +7,8 @@ describe("NotFoundPage", () => {
   it("mostra o título, a descrição e o link de volta ao início", () => {
     renderWithProviders(<NotFoundPage />, { route: "/endereco-inexistente" });
 
-    expect(screen.getByRole("heading", { name: "Pagina nao encontrada" })).toBeInTheDocument();
-    expect(screen.getByText("O recurso solicitado nao existe ou foi movido.")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Página não encontrada" })).toBeInTheDocument();
+    expect(screen.getByText("O recurso solicitado não existe ou foi movido.")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Voltar ao painel" })).toHaveAttribute("href", "/");
   });
 

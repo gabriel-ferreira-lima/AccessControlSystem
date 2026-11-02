@@ -26,12 +26,12 @@ namespace AccessControlSystem.Infrastructure.Context.AccountContext.UseCases.Upd
             }
         }
 
-        public async Task<Operator?> GetUserById(Guid id, CancellationToken cancellationToken = default) {
+        public async Task<Operator?> GetOperatorByIdAsync(Guid id, CancellationToken cancellationToken = default) {
             return await _context.Operators.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
         }
 
-        public async Task<bool> CheckIfEmailIsNotUsed(string email, Guid id, CancellationToken cancellationToken = default) {
-            return await _context.Operators.AsNoTracking().AnyAsync(x => x.Email.Address == email && x.Id != id, cancellationToken);
+        public async Task<bool> EmailExistsAsync(string email, Guid exceptId, CancellationToken cancellationToken = default) {
+            return await _context.Operators.AsNoTracking().AnyAsync(x => x.Email.Address == email && x.Id != exceptId, cancellationToken);
         }
     }
 }

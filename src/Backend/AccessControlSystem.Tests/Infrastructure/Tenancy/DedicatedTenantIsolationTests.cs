@@ -27,7 +27,7 @@ public class DedicatedTenantIsolationTests
         };
 
         await using var context = _fixture.CreateDedicatedContext(tenant);
-        var result = await new GetRepository(context).GetOperatorList(1, 100, EActiveFilter.All, CancellationToken.None);
+        var result = await new GetRepository(context).GetOperatorListAsync(1, 100, EActiveFilter.All, CancellationToken.None);
 
         Assert.Equal(2, result.Total);
         Assert.Equal(seeded.Select(o => o.Id).Order(), result.Items.Select(i => i.Id).Order());
@@ -44,10 +44,10 @@ public class DedicatedTenantIsolationTests
             var comum = await _fixture.SeedOperatorAsync(tenant, role: ERole.Operator, isActive: false, dedicated: dedicated);
 
             await using var context = createContext(tenant);
-            var lista = await new GetRepository(context).GetOperatorList(1, 100, EActiveFilter.All, CancellationToken.None);
-            var ativos = await new GetRepository(context).GetOperatorList(1, 100, EActiveFilter.Active, CancellationToken.None);
-            var porId = await new GetMeRepository(context).GetUserById(comum.Id);
-            var inexistente = await new GetMeRepository(context).GetUserById(Guid.NewGuid());
+            var lista = await new GetRepository(context).GetOperatorListAsync(1, 100, EActiveFilter.All, CancellationToken.None);
+            var ativos = await new GetRepository(context).GetOperatorListAsync(1, 100, EActiveFilter.Active, CancellationToken.None);
+            var porId = await new GetMeRepository(context).GetOperatorByIdAsync(comum.Id);
+            var inexistente = await new GetMeRepository(context).GetOperatorByIdAsync(Guid.NewGuid());
 
             return $"total={lista.Total};ativos={ativos.Total};achouPorId={porId is not null};" +
                    $"inativo={porId is { IsActive: false }};inexistente={inexistente is null};admin={admin.Role}";
@@ -70,8 +70,8 @@ public class DedicatedTenantIsolationTests
         await using var outro = _fixture.CreateContext(PostgresContainerFixture.NewTenantId());
         await using var mesmoId = _fixture.CreateContext(tenantDedicado);
 
-        Assert.Null(await new GetMeRepository(outro).GetUserById(deD.Id));
-        Assert.Null(await new GetMeRepository(mesmoId).GetUserById(deD.Id));
+        Assert.Null(await new GetMeRepository(outro).GetOperatorByIdAsync(deD.Id));
+        Assert.Null(await new GetMeRepository(mesmoId).GetOperatorByIdAsync(deD.Id));
     }
 
     [Fact]

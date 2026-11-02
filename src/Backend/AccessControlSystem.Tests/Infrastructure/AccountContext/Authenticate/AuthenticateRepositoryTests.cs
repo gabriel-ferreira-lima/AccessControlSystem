@@ -19,15 +19,15 @@ public class AuthenticateRepositoryTests
     private static string UniqueEmail() => $"auth-{Guid.NewGuid():N}@test.com";
 
     [Fact]
-    public async Task GetUserByEmailAsync_null_quando_nao_existe()
+    public async Task GetOperatorByEmailAsync_null_quando_nao_existe()
     {
         await using var context = _fixture.CreateContext();
 
-        Assert.Null(await new AuthRepository(context).GetUserByEmailAsync(UniqueEmail()));
+        Assert.Null(await new AuthRepository(context).GetOperatorByEmailAsync(UniqueEmail()));
     }
 
     [Fact]
-    public async Task GetUserByEmailAsync_devolve_o_operador_com_a_senha_utilizavel()
+    public async Task GetOperatorByEmailAsync_devolve_o_operador_com_a_senha_utilizavel()
     {
         var email = UniqueEmail();
 
@@ -36,7 +36,7 @@ public class AuthenticateRepositoryTests
                 new Operator(new Email(email), new Password("Str0ng!Pass"), ERole.Admin));
 
         await using var context = _fixture.CreateContext();
-        var op = await new AuthRepository(context).GetUserByEmailAsync(email);
+        var op = await new AuthRepository(context).GetOperatorByEmailAsync(email);
 
         Assert.NotNull(op);
         Assert.Equal(email, op!.Email.Address);
@@ -53,7 +53,7 @@ public class AuthenticateRepositoryTests
     {
         await using var context = _fixture.CreateContext();
 
-        Assert.Null(await new AuthRepository(context).GetUserByEmailAsync("admin@admin.com.br"));
+        Assert.Null(await new AuthRepository(context).GetOperatorByEmailAsync("admin@admin.com.br"));
 
         // Em nenhum tenant da base de teste (conferência pelo migrator, que enxerga todos).
         Assert.Equal(0L, await DatabaseProbe.CountAsync(
@@ -69,6 +69,6 @@ public class AuthenticateRepositoryTests
 
         await using var context = _fixture.CreateContext();   // tenant padrão da fixture
 
-        Assert.Null(await new AuthRepository(context).GetUserByEmailAsync(email));
+        Assert.Null(await new AuthRepository(context).GetOperatorByEmailAsync(email));
     }
 }

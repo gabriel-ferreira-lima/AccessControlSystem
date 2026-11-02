@@ -20,7 +20,6 @@ x-backend-environment: &backend-environment
   TenantDatabases__dedicated_01__ConnectionString: "Host=db;Port=5432;Database=acs_dedicated_01;Username=acs_app;Password=${ACS_APP_PASSWORD}"
   # Segredos — vêm do .env (não versionado). Ver .env.example.
   Secrets__JwtPrivateKey: ${JWT_PRIVATE_KEY:?defina JWT_PRIVATE_KEY no .env}
-  Secrets__PasswordSaltKey: ${PASSWORD_SALT_KEY:?defina PASSWORD_SALT_KEY no .env}
 
 x-backend: &backend
   build:

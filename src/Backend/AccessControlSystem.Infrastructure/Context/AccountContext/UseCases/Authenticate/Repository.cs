@@ -10,7 +10,7 @@ namespace AccessControlSystem.Infrastructure.Context.AccountContext.UseCases.Aut
         public Repository(AppDbContext context) {
             _context = context;
         }
-        public async Task<Operator?> GetUserByEmailAsync(string email, CancellationToken cancellationToken = default) {
+        public async Task<Operator?> GetOperatorByEmailAsync(string email, CancellationToken cancellationToken = default) {
             return await _context.Operators.AsNoTracking().FirstOrDefaultAsync(x => x.Email.Address == email, cancellationToken);
         }
     }

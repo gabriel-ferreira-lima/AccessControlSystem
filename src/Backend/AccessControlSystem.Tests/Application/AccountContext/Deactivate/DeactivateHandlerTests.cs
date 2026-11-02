@@ -18,7 +18,7 @@ public class DeactivateHandlerTests
 
     private Operator GivenExistingOperator(ERole role) {
         var op = new Operator(new Email("op@test.com"), new Password("Str0ng!Pass"), role);
-        _repository.GetUserById(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns(op);
+        _repository.GetOperatorByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns(op);
         return op;
     }
 
@@ -30,13 +30,13 @@ public class DeactivateHandlerTests
         var response = await _handler.HandleAsync(new Request(id, id));
 
         Assert.Equal(400, response.Status);
-        await _repository.DidNotReceive().GetUserById(Arg.Any<Guid>(), Arg.Any<CancellationToken>());
+        await _repository.DidNotReceive().GetOperatorByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
     public async Task Operador_inexistente_devolve_404()
     {
-        _repository.GetUserById(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns((Operator?)null);
+        _repository.GetOperatorByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns((Operator?)null);
 
         var response = await _handler.HandleAsync(new Request(Guid.NewGuid(), Guid.NewGuid()));
 

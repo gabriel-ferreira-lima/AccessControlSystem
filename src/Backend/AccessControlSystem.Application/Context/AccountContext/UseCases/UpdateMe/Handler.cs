@@ -19,15 +19,15 @@ namespace AccessControlSystem.Application.Context.AccountContext.UseCases.Update
                 var res = Specification.Ensure(request);
 
                 if (!res.IsValid) {
-                    return new Response("Requsição inválida", 400, res.Notifications);
+                    return new Response("Requisição inválida", 400, res.Notifications);
                 }
                 #endregion
 
                 #region 02 - Busca usuario no banco
-                var @operator = await _repository.GetUserById(request.Id, cancellationToken);
+                var @operator = await _repository.GetOperatorByIdAsync(request.Id, cancellationToken);
 
                 if (@operator == null) {
-                    return new Response("Sessão invalida - faça o login novamente", 401);
+                    return new Response("Sessão inválida - faça o login novamente", 401);
                 }
                 #endregion
 
@@ -36,7 +36,7 @@ namespace AccessControlSystem.Application.Context.AccountContext.UseCases.Update
                     var newEmail = new Email(request.Email);
 
                     if (newEmail.Address != @operator.Email.Address) {
-                        if (await _repository.CheckIfEmailIsNotUsed(newEmail.Address, request.Id, cancellationToken)) {
+                        if (await _repository.EmailExistsAsync(newEmail.Address, request.Id, cancellationToken)) {
                             return new Response("Email já está em uso", 409);
                         }
 
@@ -55,7 +55,7 @@ namespace AccessControlSystem.Application.Context.AccountContext.UseCases.Update
                 #endregion
 
                 #region 05 - Retorna resposta
-                return new Response("Usuario atualizado com sucesso", 200, new ResponseData(@operator.Id, @operator.Email));
+                return new Response("Usuário atualizado com sucesso", 200, new ResponseData(@operator.Id, @operator.Email));
                 #endregion
 
             }

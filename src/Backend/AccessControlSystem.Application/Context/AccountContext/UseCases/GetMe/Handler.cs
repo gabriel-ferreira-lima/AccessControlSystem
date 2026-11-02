@@ -18,10 +18,10 @@ namespace AccessControlSystem.Application.Context.AccountContext.UseCases.GetMe 
             #endregion
 
             #region 02 - Busca informações do usuário
-            var @operator = await _repository.GetUserById(request.Id, cancellationToken);
+            var @operator = await _repository.GetOperatorByIdAsync(request.Id, cancellationToken);
 
             if (@operator == null) {
-                return new Response("Sessão invalida - faça o login novamente", 401);
+                return new Response("Sessão inválida - faça o login novamente", 401);
             }
             #endregion
 
