@@ -10,7 +10,10 @@ Domain/
 Application/
   AccountContext/...            testes de Specification e Handler de cada use case
   SharedContext/Tenancy/        TenantResolverTests
+  SharedContext/Validation/     ContractExtensionsTests (IsMaxLength: tamanho máximo em caracteres)
+  UserContext/Create/           CreateSpecificationTests (só Specification: o Handler é legado vazio)
 Architecture/          NoStaticTenantStateTests   (nenhum estado estático com dado de tenant)
+                       RequestTextLimitsTests     (todo campo string de todo Request tem limite de tamanho, por reflexão)
 Infrastructure/
   Fixtures/            PostgresContainerFixture, PostgresRoleBootstrap, DatabaseProbe
   Premises/            premissas do isolamento por tenant (P-01 a P-07), com container próprio
@@ -20,7 +23,8 @@ Infrastructure/
   AccountContext/...            testes de repositório de cada use case (com casos de isolamento)
 Migrator/              executor, catálogo, orquestrador, verbos (migrate e seed-dev), códigos de saída
 Api/                   TokenService, validação do JWT e do tenant, login padrão, autorização,
-                       contrato dos 8 endpoints, opções (WebApplicationFactory em Api/Support/)
+                       contrato dos 8 endpoints, opções (WebApplicationFactory em Api/Support/),
+                       InputLimitsApiTests (400 "Requisição inválida" para campo acima do tamanho máximo)
 Support/               FakeTimeProvider (relógio falso para os testes do limite de login)
 ```
 

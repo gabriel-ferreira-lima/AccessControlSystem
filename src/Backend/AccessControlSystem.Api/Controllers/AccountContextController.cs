@@ -19,7 +19,7 @@ namespace AccessControlSystem.Api.Controllers {
         /// <p><b>password:</b> Senha de acesso do operador <b>*obrigatório</b></p>
         /// </param>
         /// <response code="200">Login efetuado, token devolvido.</response>
-        /// <response code="400">E-mail em formato inválido.</response>
+        /// <response code="400">E-mail em formato inválido, ou campo de texto acima do tamanho máximo (e-mail 255, senha 128 caracteres).</response>
         /// <response code="401">Credenciais inválidas: e-mail inexistente, conta desativada ou senha errada (a mesma resposta nos três casos).</response>
         /// <response code="429">Muitas tentativas de login para esta origem (IP) ou para esta conta (tenant + e-mail); o cabeçalho Retry-After informa a espera em segundos.</response>
         [AllowAnonymous]
@@ -48,7 +48,7 @@ namespace AccessControlSystem.Api.Controllers {
         /// <ul><li>1 - Admin</li><li>2 - Operator</li></ul></p>
         /// </param>
         /// <response code="201">Conta criada.</response>
-        /// <response code="400">Requisição inválida (e-mail/senha fora do padrão, perfil inválido).</response>
+        /// <response code="400">Requisição inválida (e-mail/senha fora do padrão, e-mail acima de 255 ou senha acima de 128 caracteres, perfil inválido).</response>
         /// <response code="401">Não autenticado: sem token, token inválido ou vencido, de outro tenant, ou emitido antes de uma troca de senha, de perfil ou de uma desativação do operador.</response>
         /// <response code="403">Sem permissão: só um administrador pode chamar.</response>
         /// <response code="409">Já existe conta cadastrada com esse e-mail neste tenant.</response>
@@ -120,7 +120,7 @@ namespace AccessControlSystem.Api.Controllers {
         /// <p><b>password:</b> Nova senha (opcional): mínimo 8 caracteres, com maiúscula, minúscula, número e símbolo</p>
         /// </param>
         /// <response code="200">Conta atualizada.</response>
-        /// <response code="400">Nenhum campo informado, ou e-mail/senha fora do padrão.</response>
+        /// <response code="400">Nenhum campo informado, e-mail/senha fora do padrão, ou e-mail acima de 255 ou senha acima de 128 caracteres.</response>
         /// <response code="401">Não autenticado: sem token, token inválido ou vencido, de outro tenant, ou emitido antes de uma troca de senha, de perfil ou de uma desativação do operador — faça login novamente.</response>
         /// <response code="409">Já existe conta cadastrada com esse e-mail neste tenant.</response>
         [Authorize]
@@ -153,7 +153,7 @@ namespace AccessControlSystem.Api.Controllers {
         /// <ul><li>1 - Admin</li><li>2 - Operator</li></ul></p>
         /// </param>
         /// <response code="200">Conta atualizada.</response>
-        /// <response code="400">Nenhum campo informado, e-mail/senha fora do padrão, ou tentativa de rebaixar um admin para operador.</response>
+        /// <response code="400">Nenhum campo informado, e-mail/senha fora do padrão, e-mail acima de 255 ou senha acima de 128 caracteres, ou tentativa de rebaixar um admin para operador.</response>
         /// <response code="401">Não autenticado: sem token, token inválido ou vencido, de outro tenant, ou emitido antes de uma troca de senha, de perfil ou de uma desativação do operador.</response>
         /// <response code="403">Sem permissão: só um administrador pode chamar.</response>
         /// <response code="404">Operador não encontrado.</response>

@@ -8,6 +8,9 @@ namespace AccessControlSystem.Domain.Contexts.AccountContext.ValueObjects {
     public partial class Password : ValueObject{
         public const string Pattern = @"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^a-zA-Z0-9]).{8,}$";
 
+        // Máximo de caracteres aceito na entrada (evita DoS no cálculo do hash).
+        public const int MaxLength = 128;
+
         protected Password() {
             
         }

@@ -121,7 +121,11 @@ entrada longa e malformada; avaliar o tamanho antes remove o problema, sem troca
    (valor do parâmetro se tiver padrão; `"a"` para string; `Guid.NewGuid()`; primeiro valor definido
    do enum; `null` para anuláveis; zero para números) com **apenas aquela propriedade** preenchida
    com 100 000 caracteres.
-3. Chama `Ensure` e exige uma notificação cuja chave seja o nome da propriedade.
+3. Chama `Ensure` e exige uma notificação cuja chave seja o nome da propriedade **e** cuja mensagem
+   contenha `no máximo` (convenção das mensagens de tamanho). Só a chave não basta: a notificação de
+   **formato** (ex.: "E-mail inválido") tem a mesma chave e faria um campo sem limite passar (achado
+   durante a Fase A). As linhas do `Theory` usam duas colunas curtas (caso de uso e campo), porque o
+   xUnit trunca textos longos no nome de exibição e linhas com o mesmo nome truncado seriam fundidas.
 4. Trava de sanidade: o conjunto descoberto contém, no mínimo, as propriedades conhecidas
    (`Authenticate.Password`, `Create.Email`, `UserContext.Create.Cpf` …), para a reflexão não
    "passar" por não achar nada.
