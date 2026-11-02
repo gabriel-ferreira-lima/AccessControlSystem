@@ -25,6 +25,11 @@ namespace AccessControlSystem.Api.Extensions {
                 Application.SharedContext.UseCases.Services.ITokenService,
                 Api.Services.AccountContext.TokenService>();
 
+            // Singleton: só guarda o hash fictício (campo de instância), sem dado de tenant.
+            builder.Services.AddSingleton<
+                Application.Context.AccountContext.UseCases.Authenticate.Contracts.IPasswordVerifier,
+                Infrastructure.Context.AccountContext.UseCases.Authenticate.PasswordVerifier>();
+
             builder.Services.AddScoped<
                 IHandler<
                     Application.Context.AccountContext.UseCases.Authenticate.Request,
