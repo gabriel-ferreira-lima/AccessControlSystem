@@ -15,6 +15,12 @@ dois workflows existentes como reusable workflows e confere o resultado real de 
 **Sem `workflow_dispatch`**: pela documentação, a execução manual **não satisfaz** um check exigido.
 Nenhum `pull_request_target`. Nenhum `secrets.*`.
 
+**Quando a plataforma nem inicia o gate** (FR-006, casos de borda; o aceite fica **bloqueado**, nunca
+aprovado): (1) PR com **conflito de merge**: os workflows de `pull_request` não rodam até o conflito
+ser resolvido; (2) PR de **fork de primeiro contribuinte**: a execução espera o dono aprovar ("Approve
+and run workflows") e, depois, roda sem segredos e só com leitura. Não há o que configurar no
+workflow: o guia descreve o que o dono vê e como sair.
+
 Topo do arquivo: `permissions: contents: read`; `concurrency` com
 `group: ci-gate-${{ github.event.pull_request.number || github.ref }}` e
 `cancel-in-progress: ${{ github.event_name == 'pull_request' }}`.
@@ -90,4 +96,4 @@ Estados: **aprovada**, **reprovada**, **dispensada**, **não ativada** (data-mod
 | gatilhos sem `paths`; job `ci-gate` com `if: always()` e `name: ci-gate`; `needs` lista os 4 jobs; sem `workflow_dispatch`; sem `pull_request_target`; sem `secrets.`; todo `uses:` é `actions/*` ou `./`; todo job com `timeout-minutes`; todo workflow com `permissions:` | `CiWorkflowsConfigTests` |
 | `backend-ci.yml`/`frontend-ci.yml` têm `workflow_call` e **não** têm `paths`; os passos de auditoria seguem na ordem exigida | `CiWorkflowsConfigTests` + `PackageAuditConfigTests` (inalterado) |
 | o nome do job `ci-gate` é igual ao `context` de `main-ruleset.json` | `CiWorkflowsConfigTests` |
-| comportamento real no GitHub (documentos; só front; só back; teste quebrado; cancelado; fora das áreas; cancelamento em reusable) | PRs descartáveis do **revisor** (quickstart V-06) |
+| comportamento real no GitHub (documentos; só front; só back; teste quebrado; cancelado; fora das áreas; cancelamento em reusable) | PRs descartáveis do **revisor, partindo da `main` depois do merge e antes do ruleset** (quickstart V-06; antes do merge só valem o V-06a e o V-06b) |

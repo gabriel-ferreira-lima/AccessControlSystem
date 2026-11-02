@@ -30,11 +30,13 @@ WSL e **não** enxerga o `jq` nem o `gh` do Windows. Por isso:
 dotnet restore Backend.slnx && dotnet build Backend.slnx
 dotnet test Backend.slnx            # anotar o total no tasks.md
 # em src/Frontend:
-npm test                            # anotar o total
+npm run typecheck && npm test && npm run build   # anotar o total de testes
+npm audit                           # esperado: 0 vulnerabilidades (a constituição exige, sempre)
 ```
 
-Esperado: tudo verde; **os totais anotados** valem para a verificação de que nenhum teste foi
-apagado, pulado ou enfraquecido (SC-013).
+Esperado: tudo verde; **os totais anotados** (e o resultado do `npm audit`) valem para a
+verificação de que nenhum teste foi apagado, pulado ou enfraquecido (SC-013) e de que não há
+pacote vulnerável. Anote também o `HEAD` (`git rev-parse --short HEAD`).
 
 ## V-02 Fase A: saúde da Api (FR-019 a FR-023)
 
@@ -44,8 +46,12 @@ dotnet test Backend.slnx --filter "FullyQualifiedName~Health"
 
 Esperado: `live` `200` sem token e **continua `200` com o catálogo fora**; `ready` `200` com o
 catálogo bom e `503` com o catálogo fora, sem esquema e acima de 2 s; resposta exatamente `Healthy`
-ou `Unhealthy`; cache de 5 s (N chamadas = 1 consulta); os únicos endpoints sem controller são os
-de saúde. Conferência manual opcional com o `docker compose up --build`:
+ou `Unhealthy`; **no máximo 1 consulta ao catálogo a cada 5 s por instância**, sob qualquer volume
+de chamadas (SC-008, provado com uma sonda falsa que conta as chamadas, sem medir tempo) e o estado
+refletindo a queda e a volta do catálogo em até 5 s; um token válido ou inválido em `/health/*`
+não muda nada e não consulta nada, e **um endpoint protegido segue aceitando token válido e
+recusando inválido**; os únicos endpoints sem controller são os de saúde. Conferência manual
+opcional com o `docker compose up --build`:
 
 ```bash
 curl -i http://127.0.0.1:5290/health/live      # 200 Healthy
@@ -59,13 +65,19 @@ docker compose start db
 ## V-03 Fase B: verbos do Migrator (FR-024 a FR-035)
 
 ```bash
-dotnet test Backend.slnx --filter "FullyQualifiedName~SeedStaging|FullyQualifiedName~VerifyNoSeedAdmin|FullyQualifiedName~SeedAdminFingerprint"
+dotnet test Backend.slnx --filter "FullyQualifiedName~SeedStaging|FullyQualifiedName~VerifyNoSeedAdmin|FullyQualifiedName~SeedAdminFingerprint|FullyQualifiedName~FictitiousPasswordsNotInRepo"
 dotnet test Backend.slnx --filter "FullyQualifiedName~SeedDev|FullyQualifiedName~MigratorProgram|FullyQualifiedName~SeedAdminPolicy"
 ```
 
 Esperado: `seed-staging` recusa Development, Production e ambiente ausente (código `5`, nada
-escrito); em Staging cria 3 tenants (2 + 1) com operadores `.test`, nenhum com o e-mail fixo,
-idempotente; senha ausente ou inválida sai `2` sem criar nada e sem imprimir a senha;
+escrito); em Staging, **partindo de bases vazias e sem registro**, registra as bases e os tenants
+no catálogo, atualiza a estrutura (com a `SeedAdminPolicy`) e cria 3 tenants (2 + 1) com
+operadores `.test`, nenhum com o e-mail fixo, idempotente; se a estrutura de alguma base não puder
+ser atualizada, sai `1` **sem criar nenhum operador** (o registro no catálogo pode ficar) e uma
+nova execução, com a causa corrigida, conclui; senha ausente ou inválida sai `2` sem criar nada
+e sem imprimir a senha; **nenhuma senha fictícia literal** no código de produção, nos
+`appsettings*.json`, nos `docker-compose*.yml` nem em `.github/` (SC-010,
+`FictitiousPasswordsNotInRepoTests`, com controle negativo);
 `verify-no-seed-admin` aprova base limpa e reprova (`7`) base contaminada de verdade, **e-mail
 alterado com id fixo**, **id trocado com e-mail fixo (outras maiúsculas)** e catálogo contaminado,
 reprova (`8`) base inacessível e divergência, aprova base sem tabelas, recusa Development (`6`), e
@@ -102,6 +114,20 @@ Esperado nos testes: gatilhos sem `paths`; `ci-gate` com `if: always()`; todo wo
 job com `timeout-minutes`; nome do job `ci-gate` igual ao `context` de `main-ruleset.json`; o job
 `k6-short` com `name: "k6 curto (não ativado)"`; o `PackageAuditConfigTests` **verde sem edição**.
 
+**Prova local de que a auditoria reprova** (sem GitHub; nada disto entra no repositório): em
+pastas temporárias **fora** do repositório,
+
+```bash
+# .NET: .csproj mínimo (net10.0) com Newtonsoft.Json 12.0.3 + cópia de src/Backend/Directory.Build.props
+CI=true dotnet restore              # esperado: FALHA com NU1903/NU1904 (vulnerabilidade), não NU1900 (rede)
+# npm: package.json mínimo com lodash@4.17.15 + lock gerado por `npm install --package-lock-only`
+npm audit                           # esperado: código de saída diferente de zero
+npm audit --registry http://127.0.0.1:1   # esperado: diferente de zero (falha de consulta reprova)
+```
+
+Conferir depois que `git status --short` do repositório não mudou. Se o `dotnet restore` passar ou
+o `npm audit` sair `0`, **pare**: a auditoria não estaria protegendo.
+
 ## V-05 Fase D: script de proteções e guia (FR-001 a FR-005a, FR-036 a FR-038)
 
 ```bash
@@ -119,29 +145,58 @@ Esperado: corpo do ruleset válido (`bypass_actors` vazio, as 4 regras, os 5 par
 em LF com `set -euo pipefail`; o guia tem todas as seções exigidas (inclusive "rode no Git Bash").
 Nenhum teste toca o GitHub real.
 
-## V-06 Validação do revisor, no GitHub real (depois do push, antes do merge)
+## V-06a e V-06b Validação do revisor **antes do merge** (no GitHub real)
 
-O implementador **não** roda isto. O revisor abre PRs **descartáveis já contra a `main`** (mudar a
-base depois não dispara) e os fecha com `gh pr close --delete-branch`:
+O implementador **não** roda isto. **Só estas duas** valem antes do merge:
 
-| PR descartável | Esperado no `ci-gate` |
+| # | Validação | Como | Esperado |
+|---|---|---|---|
+| V-06a | **PR da feature verde** no `ci-gate` | abrir o pull request depois dos commits por checkpoint | o diff contra a `main` traz **todas** as áreas (backend, frontend, `.github`), então o gate **roda tudo** e deve **aprovar** |
+| V-06b | **Nada foi aplicado** no GitHub pelo implementador | `gh api repos/{dono}/{repo}/rulesets` | devolve `[]` |
+
+**Por que o V-06 com PRs descartáveis não cabe aqui**: antes do merge o `ci-gate.yml` só existe na
+**branch da feature**. Um PR descartável teria de partir dela, e o diff contra a `main` incluiria
+**todos** os arquivos da feature, dando sempre "roda tudo": nenhum caso por área seria exercitado.
+Ele vem **depois do merge** (V-06, dentro da Fase E, abaixo).
+
+## Fase E — validação do gate e passos manuais (só depois do merge e do `ci-gate` verde na `main`)
+
+**Ordem**: V-06 (revisor) → V-07 → V-08 (opcional) → V-09. O ruleset só é aplicado **depois** de o
+V-06 passar, porque uma correção do gate encontrada nele entra por um **PR pequeno ainda sem
+proteção** (com o ruleset ativo, a correção também teria de passar pelo gate que se quer corrigir).
+
+### V-06 O `ci-gate` no GitHub real (REVISOR, depois do merge e **antes** de aplicar o ruleset)
+
+Tarefa T066. A `main` já tem o `ci-gate.yml` e **ainda não tem ruleset**. Para **cada** caso, uma
+branch nova **a partir da `main`** com **uma** mudança mínima na área, aberta **já contra a `main`**
+(mudar a base depois não dispara o gate): `git switch main && git pull && git switch -c tmp/gate-<caso>`,
+mudança, `git push`, `gh pr create --base main --draft`. Fechar cada um com
+`gh pr close --delete-branch`:
+
+| PR descartável (partindo da `main`) | Esperado no `ci-gate` |
 |---|---|
-| só `specs/` ou `.md` | aprovado em até 5 min, sem rodar backend nem frontend; ambos "dispensada" |
+| só `specs/` ou `.md` | **aprovado** em até 5 min, sem rodar backend nem frontend; ambos "dispensada" |
 | só `src/Frontend/` | roda o frontend; backend "dispensada" |
 | só `src/Backend/` | roda o backend; frontend "dispensada" |
-| backend com um teste quebrado | **reprovado** |
-| execução cancelada no meio | **reprovado** (anotar o `result` que o reusable devolveu) |
+| backend com um teste quebrado de propósito | **reprovado** |
+| execução cancelada no meio (`gh run cancel`) | **reprovado** (anotar o `result` que o reusable devolveu: confirmação pendente do research R-02) |
 | arquivo fora das áreas (`docker/x`, `.github/x`) | exige backend **e** frontend |
-| PR de fork (ou simulado) | roda sem segredos e com token só leitura |
+| PR de fork (ou simulado) | roda sem segredos e com token só leitura (sem fork para testar: registrar "não exercitado" e apoiar-se no `CiWorkflowsConfigTests`) |
+| **8 (opcional)**: branch descartável com um pacote vulnerável conhecido (ex.: `Newtonsoft.Json` 12.0.3 no `.csproj` da Api), **sem PR**, disparando `gh workflow run package-audit.yml --ref <branch>` | o `package-audit` **falha** (job `backend-audit`) e o **e-mail de falha chega** a quem disparou; apagar a branch (`git push origin --delete <branch>`) |
 
 Conferir também: a **lista de checks do PR** mostra o passo como **"k6 curto (não ativado)"** (o
 `name:` do job, para o ✓ nunca parecer uma aprovação) e o resumo traz a mesma linha como **não
-ativado** (nunca "aprovada"); o merge deste PR dispara o `ci-gate` no `push` para a `main`.
+ativado** (nunca "aprovada"); o merge da feature disparou o `ci-gate` no `push` para a `main`.
 
-## Fase E — passos manuais do dono (só depois do merge e do `ci-gate` verde na `main`)
+**Se algum caso falhar**: a correção entra por um **PR pequeno, ainda sem proteção**, e o caso é
+repetido. **Só quando os 7 casos obrigatórios passarem** o dono segue para o V-07 (o 8º é opcional).
 
-O guia `docs/protecoes-do-repositorio.md` repete estes passos com o texto final. **Nunca** ensaie
-antes de V-07 confirmar as proteções.
+Os dois casos em que a plataforma **nem inicia** o `ci-gate` (PR com **conflito de merge** e PR de
+**fork de primeiro contribuinte**, que espera o dono aprovar a execução) não são reproduzidos aqui:
+ficam descritos no guia (FR-006, casos de borda).
+
+O guia `docs/protecoes-do-repositorio.md` repete os passos do dono com o texto final. **Nunca**
+ensaie antes de V-07 confirmar as proteções.
 
 ### V-07 Aplicar e conferir
 
@@ -186,8 +241,10 @@ Para a conferência automática, rode-a com o ruleset desligado (`apply-protecti
 dotnet restore Backend.slnx          # NuGet Audit
 dotnet build Backend.slnx
 dotnet test Backend.slnx             # com Docker ligado
-# src/Frontend não muda, mas rode se tocar algo: npm run typecheck && npm test && npm run build && npm audit
+cd ../Frontend && npm run typecheck && npm test && npm run build && npm audit   # SEMPRE, mesmo com o front intocado
 ```
 
-Esperado: tudo verde, totais **iguais ou maiores** que os de V-01, nenhum teste existente editado
-(se algum precisar mudar, a tabela "Testes existentes afetados" do `tasks.md` o declara).
+Esperado: tudo verde, totais **iguais ou maiores** que os de V-01, `npm audit` sem
+vulnerabilidades (a constituição exige o `npm audit` antes do PR, sem condição; o resultado fica
+anotado em cada checkpoint do `tasks.md`), nenhum teste existente editado (se algum precisar
+mudar, a tabela "Testes existentes afetados" do `tasks.md` o declara).

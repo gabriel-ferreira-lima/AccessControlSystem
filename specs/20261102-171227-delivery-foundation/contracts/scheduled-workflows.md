@@ -53,4 +53,6 @@ desativado na aba Actions) e reativar. Vale para os **dois** workflows.
 | `package-audit.yml`: `schedule` com `cron`, `workflow_dispatch`, `run: dotnet restore Backend.slnx`, `run: npm ci` antes de `run: npm audit` (sem `--audit-level`), sem `pull_request`, sem `secrets.`, `permissions`, `timeout-minutes` | `CiWorkflowsConfigTests` |
 | `protections-check.yml`: `schedule` + `workflow_dispatch`, sem `pull_request`, sem `secrets.`, `permissions: contents: read`, usa `check-rules.sh`, `timeout-minutes` | `CiWorkflowsConfigTests` |
 | lógica da conferência | `CiScriptsTests` (respostas simuladas) |
+| **a auditoria reprova diante de pacote vulnerável** (e de falha de rede), sem GitHub | prova **local** (tarefa T048, quickstart V-04): pacote vulnerável conhecido numa pasta temporária fora do repositório, com `CI=true`: `dotnet restore` falha (`NU1903`/`NU1904`, não `NU1900`) e `npm audit` sai diferente de zero, inclusive com o registro inalcançável |
+| a auditoria reprova e o e-mail de falha chega, no GitHub real | **opcional**, do revisor (T066, caso 8): `workflow_dispatch` numa branch descartável com um pacote vulnerável, sem PR |
 | primeira execução real de cada um e chegada do e-mail | **dono** (quickstart V-07, V-08) |

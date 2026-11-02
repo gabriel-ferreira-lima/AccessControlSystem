@@ -42,6 +42,21 @@
   critério de sucesso que os prova (FR-005a com a História 1 cenário 6 e SC-016; FR-013a com a
   História 2 cenário 10 e SC-014; FR-037 e FR-037a com a História 8 e SC-015). O FR-023 (comentário
   de documentação nos endpoints de saúde) é conferido por inspeção na revisão.
+- **Revalidação depois do `/speckit-analyze` (2026-11-02)**: os 16 itens seguem `[X]`; 0 marcadores
+  `[NEEDS CLARIFICATION]`; 42 requisitos (FR-001 a FR-039 mais FR-005a, FR-013a e FR-037a) e 16
+  critérios (SC-001 a SC-016) sem repetição; 8 histórias (a História 6 passou a 8 cenários). Mudanças
+  nos textos: FR-024/FR-030, o caso de borda "base sem estrutura" e a História 6 (o comando de
+  homologação registra as bases e os tenants no catálogo e atualiza a estrutura; se alguma base
+  falha, sai com falha **sem criar nenhum operador**); FR-020/FR-022 e História 5 (o estado da
+  "pronta" reflete a queda ou a volta do catálogo em até 5 s; no máximo 1 consulta a cada 5 s por
+  instância); **SC-008 trocado** (de latência para "no máximo 1 consulta a cada 5 s por instância",
+  provado por contagem, sem tempo); **SC-010 limitado** a código de produção, `appsettings*.json`,
+  `docker-compose*.yml` e `.github/`; FR-037/SC-015 (nome **e** origem da verificação agregadora);
+  dois casos de borda novos (conflito de merge; fork de primeiro contribuinte). **Exceções
+  deliberadas ao item "sem detalhe de implementação"**, por decisão do dono: "vinda do GitHub
+  Actions" (FR-003, FR-037, História 8 cenário 6, SC-015) e o `GITHUB_TOKEN` (FR-037a, Clarificações,
+  Premissas), porque são o próprio comportamento exigido da conferência; o resto do corpo segue sem
+  nomes de ferramenta.
 - **Origem**: esta spec é a 05a, a metade sem nuvem da antiga spec 05 (dividida em 2026-11-02 por
   causa do custo da AWS). A spec gerada antes do corte foi descartada e está guardada fora do
   repositório (`05b-referencia-spec-rascunho.md`) como referência para a 05b.
@@ -88,8 +103,9 @@
     nunca por pull request, com `permissions` mínimas e sem segredo; a lógica de comparação é
     testada com respostas simuladas (regra ausente, nome trocado, envio forçado liberado);
   - o limite de 60 dias de inatividade de repositório público passa a afetar **dois** workflows
-    agendados (auditoria e conferência), e a conferência automática depende de o repositório ser
-    público (se voltar a privado, precisa de credencial e deve ser reavaliada);
+    agendados (auditoria e conferência); a conferência automática usa o `GITHUB_TOKEN` da própria
+    execução (nunca leitura anônima) e, se o repositório voltar a privado, deve ser reavaliada (a
+    leitura com o token não está confirmada para repositório privado);
   - a varredura de segredos com bloqueio no envio (FR-005a) é configuração da plataforma, fora do
     alcance do endpoint de regras: entra no script e na conferência à mão;
   - `TrustedProxyOptions` já aceita `KnownProxies` e `KnownNetworks`: a 05b só configura, esta spec

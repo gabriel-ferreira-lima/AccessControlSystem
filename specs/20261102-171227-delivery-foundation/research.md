@@ -192,7 +192,7 @@ commit antigo termina "cancelled", que **não satisfaz** o check exigido, e o no
 seu próprio run. **Ausência de resultado** (o workflow não chegou a iniciar): o check exigido
 fica pendente e **bloqueia o aceite**; isso é o comportamento seguro.
 
-**A confirmar em PRs descartáveis** (validação do revisor, ver quickstart V-06): o mapeamento
+**A confirmar em PRs descartáveis** (validação do revisor **depois do merge**, ver quickstart V-06): o mapeamento
 exato de `needs.<job>.result` quando um job que chama reusable workflow é cancelado ou estoura o
 tempo. A documentação lista os quatro valores possíveis mas não diz qual aparece em cada caso; o
 gate trata tudo que não seja `success` como reprovação, então a regra vale seja qual for.
@@ -582,6 +582,19 @@ coerente entre instâncias, e este não deve). Um `ICatalogProbe` (interface int
 implementação com o `CatalogDbContext`) é a **costura de teste**: o `ApiFactory.WithSingleton`
 troca a sonda por uma que conta chamadas, trava ou falha.
 
+**O que se garante e como se prova** (o critério de desempenho é o **custo ao catálogo**, não a
+latência): (1) **FR-022 / SC-008**: no máximo **1 consulta a cada 5 s por instância**, sob qualquer
+volume, provado por teste com a **sonda falsa que conta as chamadas** (1000 chamadas, em sequência
+e concorrentes, dentro de 5 s = 1 consulta), **sem medir tempo**; um teste de latência p95 seria
+frágil e não prova o que importa (a carga no catálogo); (2) **FR-020 / SC-007**: o estado reflete a
+queda **e a volta** do catálogo em até 5 s, provado com `Advance(5 s)` nos dois sentidos (falha →
+passa e passa → falha), e cada chamada responde em até 2 s (o tempo limite corre em tempo real);
+(3) **a mudança do JWT** (ignorar o `Authorization` só nas duas rotas de saúde, por metadado de
+endpoint, nunca por prefixo de caminho) tem **dois testes**: token válido ou inválido em
+`/health/*` não muda a resposta e **não dispara nenhuma consulta** (zero chamadas ao
+`ISessionValidator` e à sonda), e **um endpoint protegido segue aceitando token válido e recusando
+inválido**, como antes (prova de que a exceção não vazou para o resto da Api).
+
 **Segurança do que fica de fora**: log em caso de falha só com o **tipo** da exceção, nunca a
 mensagem (poderia trazer servidor e porta) nem connection string (Princípio IX, "Logs"). O header
 `Authorization` **é ignorado** nas rotas de saúde, como o login já faz: o `OnMessageReceived` do JWT
@@ -625,9 +638,15 @@ etc.; na 05b virão do Secrets Manager sem mudar o código). Validadas pelo valu
 sai com `2` e nada é criado; **o valor nunca vai para a saída**.
 
 **Idempotência**: consulta antes de criar, como o `seed-dev`; reexecutar não duplica nem troca
-senha. **Bases sem estrutura**: o orquestrador atualiza as recém-cadastradas antes de gravar
-operadores (e a `SeedAdminPolicy` garante que nasçam sem o admin fixo); se alguma falhar, sai com
-`1` sem operadores.
+senha. **Bases sem estrutura (FR-030, decisão confirmada)**: o `seed-staging`, como o `seed-dev`,
+**registra as bases e os tenants no catálogo** (idempotente) e **atualiza a estrutura delas pelo
+orquestrador do próprio Migrator, com a `SeedAdminPolicy`** (que garante que nasçam sem o admin
+fixo), antes de gravar qualquer operador. Isso é necessário porque o verbo `migrate` só atualiza
+bases **já registradas**: sem o registro feito pelo próprio comando, uma base nova nunca seria
+atualizada. Se **qualquer** base falhar, o comando sai com `1` e **não cria nenhum operador**; o
+registro no catálogo **pode ficar** (é idempotente), e uma nova execução, com a causa corrigida,
+conclui o trabalho sem duplicar nada. (Texto da spec alinhado: FR-024, FR-030, cenários 1 e 8 da
+História 6.)
 
 **Alternativas descartadas**: parametrizar o `seed-dev` por ambiente (mistura dois contratos e
 afrouxa a recusa do `seed-dev` em Production); copiar o código (duplicação).
@@ -715,18 +734,26 @@ quando a proteção quebrar. A spec 05b acrescentará o guia de operação da nu
 | **B** | Verbos do Migrator (FR-024 a FR-035) | testes dos dois verbos falham (verbo desconhecido, código `2`) | `SyntheticTenantSeeder`, `seed-staging`, `SeedAdminFingerprint`, `verify-no-seed-admin`, códigos 5 a 8 |
 | **C** | Workflows (FR-006 a FR-018, FR-013a) | testes de configuração e de scripts falham (arquivos ausentes) | `BashLocator`/`ScriptShell`, `main-ruleset.json` (nasce na C: o `check-rules.sh` o lê), `ci-gate.yml`, scripts `scripts/ci/*`, gatilhos novos, `package-audit.yml`, `protections-check.yml` e `check-rules.sh` |
 | **D** | Script de proteções + guia (FR-001 a FR-005a, FR-036 a FR-038) | testes dos scripts de proteção e do guia falham (o corpo do ruleset já passa desde a C) | `FakeGh` (`GH_BIN`, só para teste), `apply-protections.sh`, `check-protections-manual.sh`, `docs/` |
-| **E** | **Tarefas manuais do dono** (aplicar, conferir, ensaiar) | n/a | n/a |
+| **E** | **Tarefas manuais, depois do merge**: validação do gate pelo **revisor** (V-06, antes do ruleset) e, depois, o **dono** (aplicar, conferir, ensaiar) | n/a | n/a |
 
 **Um pull request** reúne as fases A a D (4 commits). **A fase E só começa depois do merge** e
 **depois de o `ci-gate` ter rodado verde na `main`** (a ordem de ativação: exigir um check que ainda
 não existe trava todos os PRs, inclusive o que o cria). O PR desta spec entra **sem** a proteção
 ativa (a `main` ainda não tem ruleset), e é o último que entra assim.
 
-**O que o revisor valida no GitHub real** (o implementador não roda nada lá), em PRs descartáveis
-abertos já contra a `main`: só documentos (passa sem backend e frontend); só frontend; só backend;
-teste quebrado (reprova); execução cancelada (reprova); arquivo fora das áreas (exige tudo);
-mapeamento de `cancelled` em reusable workflow (R-02). Fecham-se com
-`gh pr close --delete-branch`.
+**O que o revisor valida no GitHub real** (o implementador não roda nada lá). **Antes do merge**, só
+duas coisas: o **PR da feature verde** no `ci-gate` (V-06a: o diff traz todas as áreas, então o gate
+roda tudo) e **nada aplicado** no GitHub (V-06b). **Depois do merge e antes de aplicar o ruleset**
+(V-06, tarefa da Fase E), em PRs descartáveis **partindo da `main`** e abertos já contra ela: só
+documentos (passa sem backend e frontend); só frontend; só backend; teste quebrado (reprova);
+execução cancelada (reprova); arquivo fora das áreas (exige tudo); mapeamento de `cancelled` em
+reusable workflow (R-02). Fecham-se com `gh pr close --delete-branch`.
+
+**Por que não antes do merge**: o `ci-gate.yml` só existe na branch da feature; um PR descartável
+teria de partir dela e o diff contra a `main` incluiria todos os arquivos da feature (backend,
+frontend e `.github`), dando sempre "roda tudo". **Por que antes do ruleset**: se um caso falhar, a
+correção do gate entra por PR pequeno **ainda sem proteção**; com o ruleset ativo, a correção
+também teria de passar pelo gate que se quer corrigir.
 
 ## R-19 — Pacotes e dependências
 
@@ -809,3 +836,7 @@ comportamento esperado).
 | Verificação do admin fixo lenta em bases grandes (varredura de `operators`) | ferramenta operacional por entrega, com `statement_timeout`; revisar na spec 06 |
 | `jq`/`bash` ausentes numa máquina de dev | os testes de scripts falham com mensagem clara (nunca são pulados), com o `jq` procurado **dentro** do `bash` escolhido; o guia lista os requisitos |
 | Merge direto antes de a proteção estar ativa | por definição só até o fim da fase E; a ordem de ativação está no guia e no `tasks.md` |
+| Senha fictícia literal escapando para um repositório **público** (SC-010) | teste de arquitetura `FictitiousPasswordsNotInRepoTests` sobre código de produção, `appsettings*.json`, `docker-compose*.yml` e `.github/` (os testes e o `.env.example` ficam de fora), com checagem de não vacuidade e controle negativo; varredura de segredos do GitHub como segunda rede |
+| Auditoria que "passa" sem nunca ter reprovado | prova **local** da falha (pacote vulnerável conhecido em pasta temporária: `dotnet restore` e `npm audit` reprovam; `npm audit` sem rede também) e, opcional, ensaio no GitHub por `workflow_dispatch` numa branch descartável (T066, caso 8) |
+| Pasta temporária dos testes de script entrando no commit | `ScriptShell.NewScratchDirectory()` usa `src/Backend/AccessControlSystem.Tests/obj/script-tests/<Guid>/`: relativo à raiz (igual para Git Bash e .NET) e ignorado pelo `[Oo]bj/` de `src/Backend/.gitignore`; o `obj/` da **raiz não** é ignorado, por isso não serve; `git check-ignore` confere (T062) |
+| PR que nunca recebe o `ci-gate` (conflito de merge; fork de primeiro contribuinte) | a plataforma não inicia as verificações nesses dois casos: o aceite fica **bloqueado** (nunca aprovado) até resolver o conflito ou o dono aprovar a execução; exceção explícita no FR-006 e no guia |

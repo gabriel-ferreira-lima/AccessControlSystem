@@ -29,9 +29,12 @@ Sem argumento ou com verbo desconhecido: texto de uso listando os quatro verbos 
   `OperatorPasswordTenantB`), todas **de fora do repositório**. Senha ausente ou fora das regras de
   senha: código `2`, **nada criado**, **valor nunca impresso**.
 - **Fluxo** (o do `seed-dev`, pelo `SyntheticTenantSeeder`): (1) catálogo atualizado e tenants e
-  bases registrados (idempotente); (2) atualização das bases recém-cadastradas, que **nascem sem o
-  admin fixo** (`SeedAdminPolicy`); se alguma falhar, código `1` **sem criar operadores**; (3)
-  operadores pelo `AppDbContext` com `TenantScope`, sob RLS, como `acs_app`.
+  bases **registrados** (idempotente); (2) **atualização da estrutura** das bases recém-cadastradas
+  pelo orquestrador do próprio Migrator, que as faz **nascer sem o admin fixo** (`SeedAdminPolicy`);
+  se **qualquer** uma falhar, código `1` e **nenhum operador criado** (o registro no catálogo pode
+  ficar, por ser idempotente, e uma nova execução, com a causa corrigida, conclui); (3) operadores
+  pelo `AppDbContext` com `TenantScope`, sob RLS, como `acs_app`. **Por que o comando registra e
+  atualiza**: o verbo `migrate` só atualiza bases **já registradas** no catálogo (FR-024, FR-030).
 - **Dados**: os de [../data-model.md](../data-model.md), seção 4 (3 tenants: 2 em `shared_01`,
   1 em `dedicated_01`; ids estáveis; e-mails em `.test`; nenhum com `admin@admin.com.br`).
 - **Idempotente**: reexecutar não duplica tenants, bases nem operadores e não troca senha.
@@ -82,6 +85,12 @@ Sem argumento ou com verbo desconhecido: texto de uso listando os quatro verbos 
 2. `seed-staging` em Staging cria 3 tenants (2 compartilhada, 1 dedicada) com operadores em `.test`,
    nenhum com o e-mail fixo; reexecutar não muda a contagem de tenants nem de operadores.
 3. Senha ausente ou inválida: código `2`, nada criado, valor ausente da saída.
+3a. **Base com falha na atualização** (connection string de migração inválida numa base): código
+   `1`, **nenhum operador criado em nenhuma base**, saída com o nome lógico da base que falhou; uma
+   segunda execução, com a causa corrigida, conclui sem duplicar nada (FR-030).
+3b. **Nenhuma senha fictícia literal** no código de produção, nos `appsettings*.json`, nos
+   `docker-compose*.yml` nem em `.github/` (SC-010; `FictitiousPasswordsNotInRepoTests`: os testes
+   e o `.env.example` ficam fora do escopo).
 4. `seed-staging` seguido de `verify-no-seed-admin` em Staging: código `0` (ponta a ponta).
 5. `verify-no-seed-admin`: base limpa → `0`; base **contaminada de verdade** (migrada **sem** a
    política, o que executa a `SeedAdmin`) → `7`; **e-mail alterado com identificador fixo** → `7`;

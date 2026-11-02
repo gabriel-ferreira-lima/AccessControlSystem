@@ -33,11 +33,13 @@
   no script, no guia e na conferência à mão.
 - Q: Quem executa a conferência das proteções? → A: O dono, à mão, e também uma execução
   automática semanal e sob demanda, sem credencial guardada, que lê as regras ativas da principal
-  pelo endpoint de regras da plataforma (só leitura, repositório público) e falha, avisando o dono
-  por e-mail, se faltar pull request obrigatório, a verificação agregadora exigida pelo nome certo,
+  pelo endpoint de regras da plataforma **usando o `GITHUB_TOKEN` da própria execução (somente
+  leitura; nunca de forma anônima)** e falha, avisando o dono por e-mail, se faltar pull request
+  obrigatório, a verificação agregadora exigida **pelo nome certo e vinda do GitHub Actions**,
   envio forçado bloqueado ou exclusão bloqueada. O que esse endpoint não mostra (quem pode furar as
   regras; se a varredura de segredos está ligada) fica na conferência à mão, pelo guia. O plano
-  confirma pela documentação que a leitura funciona só com permissão de leitura.
+  confirmou na documentação que o endpoint exige só a permissão de leitura de metadados; que o
+  token da execução a tem é provado pela primeira execução real.
 
 ## Cenários de Usuário e Testes *(obrigatório)*
 
@@ -232,7 +234,8 @@ interno.
    credencial, **Então** responde sucesso.
 3. **Dado** o catálogo fora do ar ou sem responder, **Quando** a verificação **pronta** é chamada,
    **Então** responde indisponível dentro de um tempo limite curto, e a **viva** continua
-   respondendo sucesso.
+   respondendo sucesso. O estado da **pronta** reflete a queda ou a volta do catálogo em até 5
+   segundos (o resultado é guardado por instância durante 5 segundos).
 4. **Dado** qualquer chamada às duas verificações, **Quando** a resposta é examinada, **Então**
    não contém detalhe interno: nem nome de servidor ou de base, nem versão, nem texto de erro, nem
    dado de tenant, só o estado mínimo.
@@ -262,9 +265,10 @@ desenvolvimento e conferir a recusa; rodá-lo sem senha e conferir a falha sem e
 
 **Cenários de Aceitação**:
 
-1. **Dado** um ambiente de homologação com as bases já atualizadas, **Quando** o comando roda,
-   **Então** existem ao menos três tenants fictícios (dois em uma base compartilhada e um em base
-   dedicada), cada um com operadores fictícios.
+1. **Dado** um ambiente de homologação com as bases criadas, mesmo que ainda sem estrutura
+   atualizada nem registro no catálogo, **Quando** o comando roda, **Então** ele registra as bases e
+   os tenants no catálogo, atualiza a estrutura das bases e existem ao menos três tenants fictícios
+   (dois em uma base compartilhada e um em base dedicada), cada um com operadores fictícios.
 2. **Dado** que o comando já rodou, **Quando** ele roda de novo, **Então** não falha, não duplica
    nada e deixa intactos os tenants e operadores já existentes.
 3. **Dado** o ambiente de produção, **Quando** alguém tenta rodar o comando, **Então** ele se
@@ -281,6 +285,10 @@ desenvolvimento e conferir a recusa; rodá-lo sem senha e conferir a falha sem e
 7. **Dado** os tenants fictícios, **Quando** se consulta a documentação do comando, **Então** os
    identificadores deles são estáveis e documentados, para que a configuração do ambiente
    (por exemplo, o tenant padrão do login) possa referenciá-los.
+8. **Dado** que a estrutura de alguma das bases não pôde ser atualizada, **Quando** o comando roda,
+   **Então** ele falha com mensagem clara e código de saída de falha, **nenhum operador é criado**,
+   e o registro das bases e dos tenants no catálogo pode permanecer; uma nova execução, depois de
+   corrigida a causa, conclui o trabalho sem duplicar nada.
 
 ---
 
@@ -365,7 +373,7 @@ nome da verificação agregadora está trocado e quando o envio forçado está l
 4. **Dado** o guia, **Quando** o dono o consulta, **Então** encontra também: a ordem correta de
    ativação (a proteção só pode exigir a verificação agregadora depois de ela existir na
    principal); o que acontece se o repositório voltar a ser privado (exige plano pago, e a
-   conferência automática deixa de funcionar sem credencial); como ver o resultado da verificação
+   conferência automática precisa ser reavaliada); como ver o resultado da verificação
    agregadora, da auditoria agendada e da conferência automática; como iniciar a auditoria e a
    conferência automática à mão; e o cuidado para ensaiar as proteções (só depois de a conferência
    confirmar que estão ativas, com o SHA da principal anotado antes e, no envio forçado, uma
@@ -374,11 +382,12 @@ nome da verificação agregadora está trocado e quando o envio forçado está l
    principal no lugar, **Quando** ela termina, **Então** passa e o resultado fica registrado.
 6. **Dado** que falta uma regra da principal (pull request obrigatório, verificação agregadora
    exigida, envio forçado bloqueado ou exclusão bloqueada), ou que a verificação agregadora é
-   exigida por um nome que não existe mais, **Quando** a conferência automática roda, **Então** ela
-   falha indicando o que faltou, e o dono é avisado pelo e-mail padrão da plataforma.
-7. **Dado** que a conferência automática roda, **Quando** ela lê as regras, **Então** não usa
-   nenhuma credencial guardada no repositório e só roda em agenda ou sob demanda, nunca por pull
-   request.
+   exigida por um nome que não existe mais **ou por uma origem que não é o GitHub Actions**,
+   **Quando** a conferência automática roda, **Então** ela falha indicando o que faltou, e o dono
+   é avisado pelo e-mail padrão da plataforma.
+7. **Dado** que a conferência automática roda, **Quando** ela lê as regras, **Então** usa só o
+   token da própria execução (somente leitura), sem nenhuma credencial guardada no repositório e
+   sem leitura anônima, e só roda em agenda ou sob demanda, nunca por pull request.
 8. **Dado** o guia, **Quando** o dono faz a conferência à mão, **Então** confirma o que a
    automática não vê: que ninguém pode furar as regras da principal e que a varredura de segredos
    está ligada.
@@ -399,6 +408,14 @@ nome da verificação agregadora está trocado e quando o envio forçado está l
   (História 2, cenário 6).
 - **Verificação cancelada**: por nova mudança no pull request ou à mão. Conta como não aprovada;
   vale o resultado do estado mais recente do pull request.
+- **Pull request com conflito de merge**: enquanto houver conflito com a principal, a plataforma
+  **não inicia** as verificações de pull request; a verificação agregadora nem existe e o aceite
+  fica bloqueado (nunca conta como aprovada). Depois de resolver o conflito, as verificações rodam
+  normalmente. É a exceção prevista no FR-006; o guia explica o que o dono vê e como sair.
+- **Pull request de fork de primeiro contribuinte**: a plataforma espera aprovação manual do dono
+  para iniciar as verificações; até lá a verificação agregadora não existe e o aceite fica
+  bloqueado. Depois de aprovada a execução, ela roda sem segredos e sem permissão de escrita. É a
+  segunda exceção prevista no FR-006; o guia explica onde o dono aprova.
 - **Pull request que altera a própria verificação agregadora**: a verificação de um pull request é
   a definida no próprio pull request, então uma mudança que a afrouxe se avaliaria a si mesma como
   aprovada. A barreira aqui é a revisão do dono antes de aceitar, e a constituição (Integridade
@@ -414,12 +431,16 @@ nome da verificação agregadora está trocado e quando o envio forçado está l
 - **Falha de rede na auditoria de pacotes**: a falha de consulta à base de avisos reprova (ou
   repete), nunca passa.
 - **Verificação "pronta" sob abuso**: ela é anônima e consulta o catálogo; chamadas repetidas não
-  podem esgotá-lo. O custo por chamada é mínimo, com tempo limite curto, e a proteção contra abuso
-  é decidida no plano.
+  podem esgotá-lo. A pronta faz no máximo 1 consulta ao catálogo a cada 5 segundos por instância
+  (FR-022), com tempo limite curto; por isso o estado dela pode ficar até 5 segundos defasado em
+  relação ao catálogo (FR-020).
 - **Verificação "pronta" com catálogo lento**: responde indisponível no tempo limite, em vez de
   ficar pendurada.
-- **Comando de dados fictícios em base sem estrutura**: se as bases ainda não foram atualizadas,
-  o comando falha com mensagem clara e sem escrever nada parcial.
+- **Comando de dados fictícios em base sem estrutura**: o comando registra as bases e os tenants
+  no catálogo e atualiza a estrutura das bases antes de criar operadores; se a estrutura de
+  qualquer base não puder ser atualizada, ele falha com mensagem clara e **não cria nenhum
+  operador**. O registro no catálogo pode permanecer (é idempotente), e uma nova execução, depois
+  de corrigida a causa, termina o trabalho sem duplicar nada.
 - **Comando de dados fictícios e o administrador fixo**: nenhum operador fictício pode usar o
   e-mail fixo do administrador de desenvolvimento, nem com outra senha (é um login conhecido e
   adivinhável, e faria a verificação da História 7 reprovar).
@@ -452,7 +473,9 @@ nome da verificação agregadora está trocado e quando o envio forçado está l
 - **FR-002**: A exclusão da branch principal e a reescrita do seu histórico (envio forçado) DEVEM
   ser recusadas para todas as pessoas, sem exceção.
 - **FR-003**: Um pull request só DEVE poder ser aceito com a verificação agregadora aprovada; essa
-  é a única verificação exigida para o aceite, e a exigência NÃO DEVE ter exceção para ninguém.
+  é a única verificação exigida para o aceite, e a exigência NÃO DEVE ter exceção para ninguém. A
+  exigência vale para a verificação **vinda do GitHub Actions**: um status externo com o mesmo nome
+  NÃO a satisfaz.
 - **FR-004**: A proteção NÃO DEVE exigir aprovação humana de outra pessoa: o dono do projeto pode
   aceitar o próprio pull request quando a verificação agregadora aprova.
 - **FR-005**: Desligar ou alterar a proteção DEVE ser possível somente pela configuração do
@@ -467,7 +490,9 @@ nome da verificação agregadora está trocado e quando o envio forçado está l
 - **FR-006**: DEVE existir uma verificação agregadora que **sempre** roda em todo pull request para a
   principal, independente de quais arquivos mudaram, e que sempre termina com um resultado
   (aprovada ou reprovada) dentro de um tempo limite definido; um pull request NUNCA DEVE ficar
-  aguardando indefinidamente por ela.
+  aguardando indefinidamente por ela, **salvo** nos dois casos em que a própria plataforma não
+  inicia as verificações (conflito de merge e fork de primeiro contribuinte; ver os casos de
+  borda).
 - **FR-007**: A verificação agregadora DEVE identificar quais áreas a mudança toca (backend,
   frontend, documentos e especificações) e DEVE exigir as verificações das áreas tocadas. A
   verificação de uma área sem mudança DEVE ser dispensada, sem bloquear o aceite.
@@ -524,13 +549,16 @@ nome da verificação agregadora está trocado e quando o envio forçado está l
   processo está de pé e NÃO DEVE depender de banco, catálogo ou qualquer outro recurso externo.
 - **FR-020**: A Api DEVE expor a verificação **pronta** (`/health/ready`), que responde sucesso
   somente quando o catálogo está acessível e, caso contrário, DEVE responder indisponível dentro
-  de um tempo limite curto, sem ficar pendurada. As bases de tenant NÃO DEVEM entrar nela.
+  de um tempo limite curto, sem ficar pendurada. O estado devolvido DEVE refletir a queda ou a
+  volta do catálogo em até 5 segundos (o resultado é guardado por instância durante 5 segundos).
+  As bases de tenant NÃO DEVEM entrar nela.
 - **FR-021**: As duas verificações DEVEM ser anônimas (sem credencial) e a resposta DEVE ser mínima,
   sem nenhum detalhe interno: nome de servidor ou de base, versão, texto de erro ou dado de
   tenant.
 - **FR-022**: As verificações NÃO DEVEM alterar a exigência de autenticação dos demais endpoints,
-  e a pronta NÃO DEVE permitir que chamadas anônimas repetidas esgotem o catálogo (custo mínimo
-  por chamada; a proteção contra abuso é definida no plano).
+  e a pronta NÃO DEVE permitir que chamadas anônimas repetidas esgotem o catálogo: ela faz **no
+  máximo 1 consulta ao catálogo a cada 5 segundos por instância**, sob qualquer volume de
+  chamadas.
 - **FR-023**: O comportamento das duas verificações DEVE ser provado por testes automatizados,
   inclusive o da pronta com o catálogo fora do ar, e as verificações DEVEM ter comentário de
   documentação como os demais endpoints.
@@ -539,7 +567,11 @@ nome da verificação agregadora está trocado e quando o envio forçado está l
 
 - **FR-024**: DEVE existir um comando versionado que cria os dados fictícios de homologação: ao
   menos três tenants fictícios, sendo ao menos dois numa base compartilhada e ao menos um em
-  base dedicada, cada um com operadores fictícios.
+  base dedicada, cada um com operadores fictícios. Como o comando de dados de desenvolvimento, ele
+  **registra as bases e os tenants no catálogo** (sem duplicar) e **atualiza a estrutura dessas
+  bases** pelo mesmo mecanismo de atualização do Migrator, aplicando a política que impede o
+  administrador fixo em base nova; a atualização que o Migrator já faz só alcança bases que já
+  estão registradas, por isso o próprio comando as registra antes.
 - **FR-025**: O comando DEVE ser idempotente: rodar de novo NÃO DEVE falhar, duplicar dados nem
   alterar tenants e operadores já existentes.
 - **FR-026**: O comando DEVE rodar somente no ambiente de homologação. Em produção e em
@@ -554,8 +586,11 @@ nome da verificação agregadora está trocado e quando o envio forçado está l
   desenvolvimento.
 - **FR-029**: Os tenants fictícios DEVEM ter identificadores estáveis e documentados, para que a
   configuração de um ambiente possa referenciá-los.
-- **FR-030**: Se as bases ainda não tiverem a estrutura atualizada, o comando DEVE falhar com
-  mensagem clara e sem escrita parcial.
+- **FR-030**: Se a estrutura de **qualquer** base não puder ser atualizada (base inacessível ou
+  atualização que falha), o comando DEVE falhar com mensagem clara, código de saída de falha, e
+  **sem criar nenhum operador** (nenhuma escrita parcial de dados fictícios). O registro das bases
+  e dos tenants no catálogo PODE permanecer, porque é idempotente: rodar o comando de novo, depois
+  de corrigida a causa, continua de onde parou sem duplicar nada.
 
 **Verificação do administrador fixo**
 
@@ -589,18 +624,22 @@ nome da verificação agregadora está trocado e quando o envio forçado está l
   apontando para uma verificação que não existe mais (por exemplo, por renomeação). A conferência
   tem duas partes: (a) **automática**, em agenda semanal e sob demanda, que lê as regras ativas da
   principal e falha, avisando o dono pelo e-mail padrão da plataforma, se faltar qualquer um destes
-  pontos: pull request obrigatório; verificação agregadora exigida pelo nome certo; envio forçado
-  bloqueado; exclusão bloqueada; (b) **à mão**, pelo dono, seguindo o guia, para o que a leitura
+  pontos: pull request obrigatório; verificação agregadora exigida **pelo nome certo e vinda do
+  GitHub Actions** (a conferência falha se faltar o nome **ou** a origem: um status externo de
+  mesmo nome não basta); envio forçado bloqueado; exclusão bloqueada; (b) **à mão**, pelo dono,
+  seguindo o guia, para o que a leitura
   automática não mostra: quem pode furar as regras (deve ser ninguém) e se a varredura de segredos
   está ligada.
 - **FR-037a**: A conferência automática NÃO DEVE usar nenhuma credencial guardada no repositório:
-  DEVE usar apenas a leitura que a própria execução já tem, o que é possível enquanto o
-  repositório for público. O plano confirma pela documentação da plataforma que a leitura das
-  regras funciona só com essa permissão. A execução NÃO DEVE ser disparada por pull request: só em
-  agenda e sob demanda.
+  DEVE usar apenas o token que a plataforma entrega à própria execução (`GITHUB_TOKEN`), somente
+  leitura, e **nunca** uma leitura anônima (o limite de chamadas sem autenticação é por endereço e
+  muito menor). O plano confirmou na documentação da plataforma que a leitura das regras exige só a
+  permissão de leitura de metadados; que o token da execução a tem é provado pela primeira execução
+  real. A execução NÃO DEVE ser disparada por pull request: só em agenda e sob demanda.
 - **FR-038**: O guia DEVE documentar: a ordem de ativação; como desligar e religar a proteção
   deliberadamente numa emergência; o efeito de o repositório voltar a ser privado (exige plano
-  pago, e a conferência automática deixa de funcionar sem credencial, devendo ser reavaliada);
+  pago, e a conferência automática precisa ser reavaliada, porque a leitura com o token da
+  execução não está confirmada para repositório privado);
   onde ver o resultado da verificação agregadora, da auditoria agendada e da conferência
   automática; como iniciar a auditoria e a conferência automática à mão; como fazer a parte da
   conferência que é à mão; como notar um agendamento desativado por inatividade; e o cuidado para
@@ -663,15 +702,19 @@ Esta feature não cria nem altera dados de negócio. Os conceitos que ela govern
   sai.
 - **SC-007**: A verificação **viva** responde sucesso em 100% das chamadas com o processo de pé,
   sem consultar nenhum recurso; a **pronta** responde sucesso com o catálogo acessível e
-  indisponível em 100% das chamadas com o catálogo fora, em até 2 segundos; e 0 respostas contêm
-  detalhe interno.
-- **SC-008**: Com o catálogo saudável, a verificação **pronta** responde em até 300 ms no percentil
-  95 (meta de endpoints comuns da constituição), medido em teste local.
+  indisponível com o catálogo fora, cada chamada em até 2 segundos, e o estado dela reflete a queda
+  ou a volta do catálogo em até 5 segundos (resultado guardado por instância); e 0 respostas
+  contêm detalhe interno.
+- **SC-008**: A verificação **pronta** faz no máximo 1 consulta ao catálogo a cada 5 segundos por
+  instância, sob qualquer volume de chamadas, provado por teste com uma sonda falsa que conta as
+  chamadas.
 - **SC-009**: Depois de rodar o comando de dados fictícios, existem ao menos 3 tenants (2 em base
   compartilhada e 1 em dedicada) com operadores; uma segunda execução deixa a contagem de tenants
   e de operadores idêntica (0 duplicatas); e a recusa em produção e em desenvolvimento ocorre em
   100% das tentativas, sem escrita.
-- **SC-010**: Uma varredura do repositório não encontra nenhuma senha de operador fictício, e 0
+- **SC-010**: Nenhuma senha de operador fictício aparece no código de produção, nos
+  `appsettings*.json`, nos `docker-compose*.yml` nem em `.github/`, conferido por um teste de
+  arquitetura (os testes podem ter senhas literais de teste, como o `SeedDevCommandTests`); e 0
   operadores fictícios usam o e-mail fixo do administrador de desenvolvimento.
 - **SC-011**: A verificação do administrador fixo aprova 100% das bases limpas e reprova 100% das
   bases contaminadas de teste (catálogo e base de tenant), das bases em que só o e-mail foi
@@ -687,9 +730,10 @@ Esta feature não cria nem altera dados de negócio. Os conceitos que ela govern
   padrão da plataforma.
 - **SC-015**: A conferência automática das proteções falha em 100% dos casos de teste em que falta
   pull request obrigatório, verificação agregadora exigida, envio forçado bloqueado ou exclusão
-  bloqueada, ou em que o nome exigido da verificação agregadora não existe mais, e passa quando
-  tudo está no lugar; isso é provado por teste automatizado sobre respostas simuladas da
-  plataforma e por uma execução real aprovada, sem nenhuma credencial guardada.
+  bloqueada, em que o nome exigido da verificação agregadora não existe mais, ou em que a origem
+  exigida não é o GitHub Actions, e passa quando tudo está no lugar; isso é provado por teste
+  automatizado sobre respostas simuladas da plataforma e por uma execução real aprovada, sem
+  nenhuma credencial guardada.
 - **SC-016**: A conferência à mão confirma que a varredura de segredos com bloqueio no envio está
   ativa e que ninguém pode furar as regras da principal.
 
@@ -731,12 +775,14 @@ Esta feature não cria nem altera dados de negócio. Os conceitos que ela govern
   - **Varredura de segredos**: entra como proteção do repositório (FR-005a), gratuita em
     repositório público.
   - **Conferência das proteções**: à mão e também automática (semanal e sob demanda), sem
-    credencial guardada, lendo as regras ativas da principal pelo endpoint de regras da plataforma,
-    que não exigiu credencial em repositório público (conferido em 2026-11-02: devolveu sucesso
-    sem credencial; hoje a lista é vazia porque ainda não há regras). O plano confirma pela
-    documentação da plataforma que a leitura funciona só com a permissão de leitura da execução e
-    define a lógica de comparação. O que o endpoint não mostra (quem pode furar as regras; se a
-    varredura de segredos está ligada) fica na conferência à mão.
+    credencial guardada, lendo as regras ativas da principal pelo endpoint de regras da plataforma
+    **com o `GITHUB_TOKEN` da própria execução, somente leitura, nunca de forma anônima** (conferido
+    em 2026-11-02: o endpoint respondeu sem credencial e a lista está vazia porque ainda não há
+    regras; isso só mostra que o endpoint é legível, não é a forma de uso). O plano confirmou na
+    documentação que o endpoint exige só a permissão de leitura de metadados e define a lógica de
+    comparação, que confere o nome **e a origem** (GitHub Actions) da verificação agregadora. O que
+    o endpoint não mostra (quem pode furar as regras; se a varredura de segredos está ligada) fica
+    na conferência à mão.
 - **Sem revisão humana obrigatória**: o repositório tem um único dono e o código é escrito por IA;
   exigir aprovação de outra pessoa travaria todos os aceites. A barreira é a verificação
   automática obrigatória, sem exceção para ninguém.
@@ -746,8 +792,8 @@ Esta feature não cria nem altera dados de negócio. Os conceitos que ela govern
   regra de Integridade das entregas da constituição. É um limite aceito e explícito.
 - **Repositório público e plano gratuito**: a proteção da principal e as demais regras só são
   gratuitas porque o repositório é público (desde 2026-11-02). Se voltar a ser privado, a proteção
-  exige plano pago e a conferência automática das proteções deixa de funcionar sem credencial (é
-  preciso reavaliá-la); o guia diz isso. O repositório não pode conter segredos nem em commit, nem
+  exige plano pago e a conferência automática das proteções precisa ser reavaliada (a leitura com o
+  token da execução não está confirmada para repositório privado); o guia diz isso. O repositório não pode conter segredos nem em commit, nem
   em issue, nem em registro de execução.
 - **Estado atual relevante** (conferido em 2026-11-02, depois da spec 04b e da constituição
   1.2.4): a principal **não** está protegida e não há nenhuma regra de proteção configurada; só

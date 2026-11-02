@@ -36,7 +36,10 @@ servidor ou de base, sem texto de exceção, sem dado de tenant. **Não usa** o 
   `ApiFactory.WithFakeTime` o controla nos testes).
 - **Cache de 5 s, com uma única consulta em voo** (proteção contra abuso): verificador singleton com
   `SemaphoreSlim(1,1)`; guarda **só** `ultimoResultado` e `validoAte`; TTL de 5 s para sucesso e
-  falha; por instância de propósito; sem dado de tenant.
+  falha; por instância de propósito; sem dado de tenant. **Critério (FR-022, SC-008)**: no máximo
+  **1 consulta ao catálogo a cada 5 s por instância**, sob qualquer volume de chamadas. **Efeito
+  (FR-020, SC-007)**: o estado devolvido reflete a queda ou a volta do catálogo em **até 5 s**. Não
+  há meta de latência medida em teste: o que se prova é o custo ao catálogo.
 - Log em caso de falha: **nível Warning**, só o **tipo** da exceção (nunca a mensagem nem a
   connection string).
 
@@ -47,13 +50,20 @@ servidor ou de base, sem texto de exceção, sem dado de tenant. **Não usa** o 
    esquema ausente (catálogo isolado sem migrations) e acima de 2 s (sonda que nunca termina; o
    teste espera o tempo limite **real**, ≈2 s: o relógio falso só controla o TTL do cache).
 3. `ready` responde `200` mesmo com **bases de tenant** fora do ar (só o catálogo conta).
-4. **Cache**: N chamadas em menos de 5 s fazem **1** consulta; depois de 5 s (relógio falso), uma
-   nova; chamadas concorrentes com cache vencido fazem **1** consulta.
+4. **Cache (SC-008)**: com uma **sonda falsa que conta as chamadas**, **1000 chamadas** (em
+   sequência e concorrentes) em menos de 5 s fazem **1** consulta; depois de 5 s (relógio falso), uma
+   nova; chamadas concorrentes com cache vencido fazem **1** consulta. **Sem medir tempo.** O estado
+   reflete a queda **e a volta** do catálogo em até 5 s (falha → passa e passa → falha, com
+   `Advance(5 s)`; SC-007).
 5. A resposta é exatamente `Healthy` ou `Unhealthy`, com `Cache-Control` contendo `no-store`, sem nenhum
    outro dado.
 6. Um `Authorization`, **inválido ou válido**, enviado às rotas é **ignorado** (como no login: o
    `OnMessageReceived` do JWT chama `NoResult()` para o metadado `HealthEndpointMarker`), **não muda**
-   o resultado e **não dispara consulta de sessão nem de catálogo**.
+   o resultado e **não dispara consulta de sessão nem de catálogo** (zero chamadas ao
+   `ISessionValidator` e à sonda). A restrição é **por metadado de endpoint**, só nas duas rotas.
+   **Teste de não regressão (U2)**: com o `ISessionValidator` normal, um **endpoint protegido**
+   (o mesmo que o `JwtValidationTests` usa) **aceita** o token válido e **recusa** o inválido com
+   `401`, exatamente como antes da mudança do JWT.
 7. Os **demais endpoints continuam exigindo autenticação** (`DefaultAuthorizationTests`, já
    existente) e os **únicos endpoints sem controller** são `/health/live` e `/health/ready` (e, só
    em Development, o Swagger).
