@@ -33,7 +33,8 @@ Esperado: tudo verde. Os números exatos de testes saem do `tasks.md`.
 ## 2. Subir o ambiente
 
 ```bash
-docker compose run --rm migrator migrate     # aplica AddSecurityVersionToOperators (único caminho)
+docker compose run --rm --build migrator migrate   # aplica AddSecurityVersionToOperators (único caminho);
+                                                   # --build evita rodar uma imagem antiga, sem a migration
 docker compose up --build -d
 ```
 
@@ -147,9 +148,10 @@ curl -s -X PUT $API/v1/account/activate/$OPID   -H "Authorization: Bearer $TOKEN
 curl -s -o /dev/null -w '%{http_code}\n' -H "Authorization: Bearer $OP2" $API/v1/account/get-me      # 401
 ```
 
-Esperado: `200`, `401`, `1`, `401`. Para o **perfil**, troque o perfil do operador por `update/{id}` com
-`{"role":1}` e confira que o token anterior dá `401`. Se `get-list` mudar de formato, pegue o `id` na
-tela de operadores do console.
+Esperado: `200`, `401`, `1`, `401`. Para o **perfil**, use um operador **descartável** (crie um com `create`,
+perfil `2`), troque o perfil dele por `update/{id}` com `{"role":1}` e confira que o token anterior dá `401`.
+**Não faça isso com o `operador@exemplo.com`**: a regra de domínio não deixa rebaixar um administrador, então o
+perfil dele não volta pela Api. Se `get-list` mudar de formato, pegue o `id` na tela de operadores do console.
 Restaure a senha do operador para `<DEV_OPERATOR_PASSWORD_A>` (com `update/{id}`) ao terminar.
 
 ## 7. `X-Forwarded-For` forjado não contorna o limite (US5, SC-006)
@@ -158,13 +160,16 @@ Restaure a senha do operador para `<DEV_OPERATOR_PASSWORD_A>` (com `update/{id}`
 # Direto na Api (a origem é o gateway do Docker, não o proxy conhecido): o cabeçalho é ignorado
 for i in $(seq 25); do
   curl -s -o /dev/null -w '%{http_code} ' -X POST $API/v1/account/login -H 'Content-Type: application/json' \
-    -H "X-Forwarded-For: 203.0.113.$i" -d '{"email":"x@exemplo.com","password":"errada"}'
+    -H "X-Forwarded-For: 203.0.113.$i" -d "{\"email\":\"ip$i@exemplo.com\",\"password\":\"errada\"}"
 done; echo
 ```
 
-Esperado: `401` nas primeiras 20 e `429` nas seguintes (cada IP forjado deveria dar 25 `401`). Aguarde 1 min.
-Pelo console (proxy conhecido), o IP usado é o **real** que o nginx viu: `http://127.0.0.1:5173/v1/...`
-com o mesmo cabeçalho forjado também termina em `429`.
+Use **um e-mail diferente a cada tentativa** (`ip$i@...`): com o mesmo e-mail, o limite **por conta** bloqueia
+na 6ª falha (`401` ×5 e depois `429`) e esconde o limite por origem.
+
+Esperado: `401` nas primeiras 20 e `429` nas seguintes (cada IP forjado deveria dar 25 `401`). Aguarde 1 min
+(ou `docker compose restart backend`). Pelo console (proxy conhecido), o IP usado é o **real** que o nginx
+viu: `http://127.0.0.1:5173/v1/...` com o mesmo cabeçalho forjado e e-mails diferentes também termina em `429`.
 
 ## 8. Bloqueio por conta (US5, SC-005)
 
@@ -223,7 +228,26 @@ borda, repita. **Registre os três valores aqui** (data, máquina, medianas) par
 
 | Data | Máquina | Inexistente | Inativa | Senha errada | Diferença máx. |
 |---|---|---|---|---|---|
-| _preencher_ | | | | | |
+| 2026-11-02 | i7-12700H, 16 GB, Windows 11 + Docker Desktop; rodada 1 | 0,0111 s | 0,0107 s | 0,0099 s | 12,1% |
+| 2026-11-02 | idem; rodada 2 | 0,0095 s | 0,0112 s | 0,0105 s | 17,9% |
+| 2026-11-02 | idem; rodada 3 | 0,0105 s | 0,0099 s | 0,0112 s | 13,1% |
+| 2026-11-02 | **90 amostras por caso (3 rodadas juntas)** | **0,0105 s** | **0,0106 s** | **0,0105 s** | **1,0%** |
+
+Leitura: cada operação leva ~10 ms, então 1 ms de variação da máquina já é 10%. Medir um caso inteiro e só
+depois o seguinte deixa essa variação cair num caso só: as três rodadas acima passaram de 10% e o caso mais
+lento mudou a cada rodada (ruído, não viés).
+
+**Método válido (revisão de 2026-11-02): casos intercalados.** Alterne os três casos a cada tentativa
+(inexistente, inativa, senha errada, de novo inexistente...), 95 vezes, e tire a mediana de cada caso
+(`time_starttransfer`). Use um e-mail inexistente diferente a cada tentativa e recrie a Api entre rodadas
+(o registro de falhas é em memória). Assim a variação da máquina atinge os três casos por igual:
+
+| Data | Máquina | Inexistente | Inativa | Senha errada | Diferença máx. |
+|---|---|---|---|---|---|
+| 2026-11-02 | idem; intercalado, 95 por caso, rodada A | 0,00989 s | 0,01013 s | 0,00996 s | 2,4% |
+| 2026-11-02 | idem; intercalado, 95 por caso, rodada B | 0,00988 s | 0,00991 s | 0,01011 s | 2,3% |
+
+Resultado do SC-004: **aprovado** (as duas rodadas intercaladas ficaram abaixo de 10%).
 
 **Depois da medição, volte aos padrões (obrigatório)**: limpe as duas variáveis, recrie as Apis e **confira**
 (no mesmo shell em que exportou):
