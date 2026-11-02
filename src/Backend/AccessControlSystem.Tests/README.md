@@ -5,7 +5,7 @@ Estrutura espelha a das outras camadas, por contexto / use case:
 ```
 Domain/
   ValueObjects/        EmailTests, PasswordTests
-  Entities/            OperatorTests
+  Entities/            OperatorTests, UserTests
   SharedContext/       EntityTests
 Application/
   AccountContext/...            testes de Specification e Handler de cada use case

@@ -17,8 +17,8 @@ código testado (`*.test.ts` / `*.test.tsx`); `App.test.tsx` usa o `App` real.
 **Resumo dos 49 cenários**: 44 cobertos · 2 cobertos parcialmente (3.8, 7.5) · 3 validados no PR
 (1.3, 1.4, 1.5).
 
-Os títulos de `describe`/`it` levam acentuação correta; só os textos de interface afirmados nos
-testes (ex.: `Pagina nao encontrada`) ficam sem acento, como estão hoje.
+Os títulos de `describe`/`it` e os textos de interface afirmados nos testes levam acentuação
+correta (ex.: `Página não encontrada`), corrigida pela spec 03 (legacy-cleanup).
 
 ## História 1 — Rodar a suíte e ser barrado por ela
 
@@ -67,7 +67,7 @@ testes (ex.: `Pagina nao encontrada`) ficam sem acento, como estão hoje.
 | 4.2 Operador fora das rotas de operadores | `App.test.tsx`; `components/RequireRole.test.tsx` | "redireciona o Operador de %s para o início" (3 rotas); "redireciona o Operador para o início quando a rota exige Admin" | coberto |
 | 4.3 Administrador fora de Minha conta | `App.test.tsx`; `components/RequireRole.test.tsx` | "redireciona o Administrador de /minha-conta para o início"; "redireciona o Administrador para o início quando a rota exige Operator" | coberto |
 | 4.4 Endereço inexistente | `App.test.tsx`; `pages/NotFoundPage.test.tsx` | "mostra a página não encontrada para um endereço inexistente e volta ao início pelo link"; "mostra o título, a descrição e o link de volta ao início" | coberto |
-| 4.5 Menu por perfil | `components/layout/Sidebar.test.tsx` | "mostra para o Administrador os itens Inicio e Operadores, sem Minha conta"; "mostra para o Operador os itens Inicio e Minha conta, sem Operadores"; "não mostra os grupos que ficam sem itens para o perfil" | coberto |
+| 4.5 Menu por perfil | `components/layout/Sidebar.test.tsx` | "mostra para o Administrador os itens Início e Operadores, sem Minha conta"; "mostra para o Operador os itens Início e Minha conta, sem Operadores"; "não mostra os grupos que ficam sem itens para o perfil" | coberto |
 
 ## História 5 — Criar e editar operador
 
@@ -121,7 +121,7 @@ testes (ex.: `Pagina nao encontrada`) ficam sem acento, como estão hoje.
 |---|---|
 | `components/ui/Alert.test.tsx`, `Button.test.tsx`, `ConfirmDialog.test.tsx`, `PasswordField.test.tsx`, `SelectField.test.tsx`, `TextField.test.tsx` | tom, rótulo, erro acessível, carregamento, janela de confirmação |
 | `components/RequireSession.test.tsx`, `RequireRole.test.tsx` | guardas de rota |
-| `components/layout/Sidebar.test.tsx`, `Topbar.test.tsx` | menu por perfil e topo; o `AppShell` (link `Ir para o conteudo` e landmark `main`) é coberto em `App.test.tsx`: "mostra o menu lateral e o topo junto do conteúdo da rota, com link para pular ao conteúdo" |
+| `components/layout/Sidebar.test.tsx`, `Topbar.test.tsx` | menu por perfil e topo; o `AppShell` (link `Ir para o conteúdo` e landmark `main`) é coberto em `App.test.tsx`: "mostra o menu lateral e o topo junto do conteúdo da rota, com link para pular ao conteúdo" |
 | `components/ThemeToggle.test.tsx`, `context/ThemeContext.test.tsx` | tema claro/escuro, persistência e preferência do sistema |
 | `context/AuthContext.test.tsx` | sessão, expiração e armazenamento indisponível |
 | `lib/api-client.test.ts`, `form-error.test.ts`, `labels.test.ts`, `session-storage.test.ts` | utilitários |
