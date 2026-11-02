@@ -96,7 +96,7 @@ dados de negócio e credenciais nunca vão para ele.
 - `Domain` NÃO DEVE depender de nenhum pacote além de `SecureIdentity`. `Application` só
   depende de `Domain` e `Flunt`. EF Core e Npgsql ficam só em `Infrastructure` (e na `Api`
   para migrations).
-- Interfaces que a Application precisa (repositórios, `ITokenService`, `IActiveSessionChecker`)
+- Interfaces que a Application precisa (repositórios, `ITokenService`, `ISessionValidator`)
   DEVEM ser declaradas na Application e implementadas na Infrastructure ou na Api.
 - Pacotes NuGet ou npm novos DEVEM ser justificados no `plan.md`.
 
@@ -153,7 +153,7 @@ dados de negócio e credenciais nunca vão para ele.
   busca → regras de negócio → persistência → resposta.
 - Resultados esperados de negócio DEVEM virar `Response` com status HTTP explícito (400, 401,
   404, 409); exceções ficam para o inesperado. Status usados hoje: `200`, `201` (criação), `400`,
-  `401`, `404`, `409`.
+  `401`, `404`, `409` e `429` (bloqueio por conta no login).
 - Handler que instancia value objects ou persiste dados sujeitos a restrição de unicidade DEVE
   capturar `DomainException` → `400` e `ConflictException` → `409`. Repositórios DEVEM traduzir
   violação de unicidade do Postgres (`SqlState 23505`) em `ConflictException`.
@@ -246,7 +246,8 @@ design DEVE partir do pressuposto de que a Api está exposta a atacantes.
   chave de assinatura DEVE ter pelo menos 256 bits, e a Api NÃO DEVE iniciar com chave ausente
   ou menor. O token DEVE carregar uma claim de versão de segurança do operador, incrementada na
   troca de senha, na mudança de role e na desativação, e conferida a cada requisição (pelo
-  `IActiveSessionChecker`). Token com versão antiga recebe `401`.
+  `ISessionValidator`, que confere se o operador está ativo e se a versão de segurança do token
+  é a atual). Token com versão antiga recebe `401`.
 - **Login**: a verificação de hash DEVE ser executada sempre, mesmo quando o e-mail não existe,
   para o tempo de resposta não revelar quais e-mails estão cadastrados. O login DEVE ter limite
   de tentativas por IP **e** por conta, com backoff, e mensagem de erro genérica.
@@ -587,16 +588,8 @@ código novo; cada um é corrigido por spec própria.
 - `Application/Context/UserContext/Create/*`: handler vazio e `ResponseData` copiado do Operator.
   A spec do cadastro de usuário reescreve esse use case, reaproveitando só o domínio
   (`User`, `Name`, `Cpf`, `Rg`, `Telephone`, `PasswordAccess`).
-- `BuilderExtensions.AddForwardedHeaders`: limpa `KnownProxies`/`KnownIPNetworks`, então a Api
-  aceita `X-Forwarded-For` de qualquer origem. Com a porta da Api exposta no
-  `docker-compose.yml`, o rate limit do login é contornável (viola o Princípio IX).
-- `BuilderExtensions.AddJwtAuthentication`: `ValidateIssuer`/`ValidateAudience = false`, sem
-  checagem de tamanho de chave e sem versão de segurança no token (viola o Princípio IX).
-- `Authenticate/Handler.cs`: quando o e-mail não existe, responde sem calcular o hash, o que
-  permite descobrir e-mails pelo tempo de resposta (viola o Princípio IX).
-- `AddRateLimiting`: limite só por IP, sem limite por conta nem por tenant, e guardado na memória
-  da instância (viola os Princípios IX e XIII).
-- `Program.cs`: Swagger mapeado em qualquer ambiente (viola o Princípio IX).
+- `AddRateLimiting`: guardado na memória da instância e sem limite por tenant (spec 06) (viola o
+  Princípio XIII).
 - `PasswordAccess.Value`: PIN em texto puro (viola o Princípio IX).
 - `src/Frontend/nginx.conf`: sem HSTS nem cabeçalhos de segurança (viola o Princípio IX).
 - `Domain/Contexts/AccountContext/Enums/ERole.cs` + `[Authorize(Roles = "Admin")]` no
@@ -608,7 +601,7 @@ código novo; cada um é corrigido por spec própria.
 - CI do backend e do frontend sem verificação de pacotes vulneráveis
   (`dotnet list package --vulnerable` e `npm audit`); em 2026-11-01 o `npm audit` de
   `src/Frontend` aponta 2 vulnerabilidades high (vite <=6.4.3 e source-map-js) (viola o Princípio
-  IX). Será corrigido pela spec 04 (security-hardening).
+  IX). Será corrigido pela spec 04b (security-perimeter).
 - Entrega: não existem ambientes de homologação e produção, pipeline de deploy nem
   infraestrutura como código (o workflow do Azure App Service foi removido no commit `6dcb3e0`)
   (viola a seção "Branches, ambientes e entrega").
@@ -621,5 +614,5 @@ código novo; cada um é corrigido por spec própria.
 - `Domain/Contexts/UserContext`: `User.DateStart`/`DateEnd`, `Cpf.Validity` e `Rg.Validity` usam
   `DateTime` sem garantir `Kind = Utc` (viola a seção Operação).
 
-**Version**: 1.2.2 | **Ratified**: 2026-10-31 |
-**Last Amended**: 2026-11-01
+**Version**: 1.2.3 | **Ratified**: 2026-10-31 |
+**Last Amended**: 2026-11-02
