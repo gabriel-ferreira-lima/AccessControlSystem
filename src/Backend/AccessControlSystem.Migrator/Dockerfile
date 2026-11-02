@@ -7,6 +7,10 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
+# A auditoria de pacotes (NuGet Audit) vem do Directory.Build.props: ele precisa estar presente ANTES do restore, senão a
+# imagem restauraria sem auditoria (o restante do código só entra depois, e o publish usa --no-restore).
+COPY Directory.Build.props ./
+
 # Copia apenas os .csproj primeiro para aproveitar o cache de camadas no restore. A Api entra porque
 # as migrations ficam no assembly dela.
 COPY AccessControlSystem.Migrator/AccessControlSystem.Migrator.csproj AccessControlSystem.Migrator/

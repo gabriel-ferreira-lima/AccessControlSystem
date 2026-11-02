@@ -14,6 +14,7 @@ Application/
   UserContext/Create/           CreateSpecificationTests (só Specification: o Handler é legado vazio)
 Architecture/          NoStaticTenantStateTests   (nenhum estado estático com dado de tenant)
                        RequestTextLimitsTests     (todo campo string de todo Request tem limite de tamanho, por reflexão)
+                       PackageAuditConfigTests    (NuGet Audit, exceção do SSH.NET por aviso, Dockerfiles e workflows de auditoria)
 Infrastructure/
   Fixtures/            PostgresContainerFixture, PostgresRoleBootstrap, DatabaseProbe,
                        AppRoleProbe (sonda de privilégios de um papel), CanaryRole (papel descartável)

@@ -37,14 +37,16 @@ Esperado: tudo verde; o `RequestTextLimitsTests` lista os campos que cobriu.
 Na prática, com o ambiente de pé (`docker compose up --build`, na raiz):
 
 ```bash
-# senha de 1 MB no login → 400, sem hash e sem consulta ao banco
+# senha de 1 MB no login → 400, sem hash e sem consulta ao banco (direto na Api do tenant A, porta 5290)
 head -c 1048576 /dev/zero | tr '\0' 'a' > /tmp/big.txt
 printf '{"email":"admin@x.com","password":"%s"}' "$(cat /tmp/big.txt)" > /tmp/login-big.json
 curl -s -o /dev/null -w "%{http_code}\n" -H "Content-Type: application/json" \
-  --data-binary @/tmp/login-big.json http://localhost:5173/v1/account/login
+  --data-binary @/tmp/login-big.json http://127.0.0.1:5290/v1/account/login
 ```
 
-Esperado: `400`. O corpo é `{"message":"Requisição inválida", … "notifications":[{"key":"Password", …}]}`.
+Esperado: `400`. Pelo console (`http://localhost:5173`) um corpo acima de 1 MiB nem chega à Api: o nginx tem o limite
+padrão de corpo (`client_max_body_size 1m`) e responde `413`; com uma senha de 900 KB (ou 129 caracteres) pelo console
+o resultado é o mesmo `400` da Api. O limite do corpo inteiro da requisição não faz parte desta spec. O corpo é `{"message":"Requisição inválida", … "notifications":[{"key":"Password", …}]}`.
 Com senha de exatamente 128 caracteres o resultado deixa de ser `400` (vira `401`, credencial
 errada).
 

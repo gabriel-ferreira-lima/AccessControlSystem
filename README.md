@@ -91,6 +91,23 @@ da claim `tenant` do token).
   **só pelo Migrator** (`docker compose run --rm migrator migrate`). Até lá, a API não funciona numa base
   que ainda não tem a coluna.
 
+### Verificações de segurança do perímetro
+
+- **Tamanho máximo na entrada**: todo campo de texto de toda requisição da Api tem limite (e-mail 255, senha 128, etc.);
+  acima dele a resposta é `400` "Requisição inválida" com a notificação do campo. Um teste por reflexão
+  (`RequestTextLimitsTests`) falha se um campo novo ficar sem limite.
+- **Cabeçalhos do console**: `bash scripts/verify-security-headers.sh` (em `src/Frontend`, precisa de Docker, `curl` e
+  `openssl`) constrói a imagem do console e confere CSP, `X-Frame-Options`, `nosniff`, `Referrer-Policy`,
+  `Permissions-Policy` e o HSTS condicional. Detalhes e como recalcular o hash do script do tema:
+  `src/Frontend/README.md`.
+- **Pacotes vulneráveis**: o backend usa o NuGet Audit (`src/Backend/Directory.Build.props`): `dotnet restore
+  Backend.slnx` (e `build`, `test` e `docker build`) falha com vulnerabilidade conhecida, direta ou transitiva, de
+  qualquer severidade. No front, `npm audit` (em `src/Frontend`) faz o mesmo.
+- **Registrar uma exceção de vulnerabilidade**: só por aviso, no menor escopo e com a justificativa escrita ao lado.
+  No NuGet, um `<NuGetAuditSuppress Include="URL do GHSA" />` no `.csproj` afetado, com comentário de justificativa
+  (hoje há uma, do `SSH.NET`, no projeto de testes); não existe `NoWarn` geral. No npm não há nenhuma exceção hoje.
+  A revisão do PR confere a justificativa. Contrato: `specs/20261102-125831-security-perimeter/contracts/dependency-audit.md`.
+
 ### Comandos úteis
 
 ```bash

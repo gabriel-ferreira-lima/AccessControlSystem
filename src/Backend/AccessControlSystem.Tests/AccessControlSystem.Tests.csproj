@@ -5,9 +5,16 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
-    <!-- NU1903: SSH.NET vem transitivo do Testcontainers (feature "Docker over SSH", nunca usada aqui). -->
-    <NoWarn>$(NoWarn);NU1903</NoWarn>
   </PropertyGroup>
+
+  <!-- Única exceção da auditoria de pacotes (Directory.Build.props), por aviso e só neste projeto; não há NoWarn geral. -->
+  <ItemGroup>
+    <!-- Justificativa (SSH.NET 2024.2.0): vem transitivo do Testcontainers, que o usa só no recurso "Docker over SSH",
+         nunca usado aqui. O pacote existe apenas neste projeto de testes e NÃO vai para as imagens de produção (Api e
+         Migrator não o referenciam). Reavaliar quando houver versão corrigida do Testcontainers; então a exceção sai. -->
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-q939-rpr3-3284" />
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-mggc-4xg6-vcxf" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="coverlet.collector" Version="10.0.1">
