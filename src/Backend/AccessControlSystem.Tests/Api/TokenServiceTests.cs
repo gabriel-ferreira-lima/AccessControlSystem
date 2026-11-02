@@ -16,6 +16,9 @@ public class TokenServiceTests
 {
     private const string TestKey = "chave-de-teste-para-hmac-sha256-com-mais-de-256-bits-aaaaaaaaaaaa";
 
+    private const string TestIssuer = "emissor-de-teste";
+    private const string TestAudience = "destinatario-de-teste";
+
     private static readonly Guid TenantId = Guid.Parse("b1b1b1b1-0000-4000-8000-000000000001");
 
     private readonly ITenantContext _tenant = Substitute.For<ITenantContext>();
@@ -27,7 +30,10 @@ public class TokenServiceTests
         _tenant.IsResolved.Returns(true);
         _tenant.TenantId.Returns(TenantId);
 
-        _service = new TokenService(Options.Create(new SecretsOptions { JwtPrivateKey = TestKey }), _tenant);
+        _service = new TokenService(
+            Options.Create(new SecretsOptions { JwtPrivateKey = TestKey }),
+            Options.Create(new JwtOptions { Issuer = TestIssuer, Audience = TestAudience }),
+            _tenant);
     }
 
     private static Operator NewOperator(ERole role) =>
@@ -79,6 +85,35 @@ public class TokenServiceTests
         var principal = Validate(_service.Generate(NewOperator(ERole.Admin)));
 
         Assert.Equal(TenantId.ToString(), principal.FindFirstValue("tenant"));
+    }
+
+    [Fact]
+    public void Token_carrega_emissor_e_destinatario_das_opcoes()
+    {
+        var jwt = new JwtSecurityTokenHandler().ReadJwtToken(_service.Generate(NewOperator(ERole.Admin)));
+
+        Assert.Equal(TestIssuer, jwt.Issuer);
+        Assert.Equal([TestAudience], jwt.Audiences);
+    }
+
+    [Fact]
+    public void Token_carrega_a_security_version_do_operador()
+    {
+        var op = NewOperator(ERole.Admin);
+        op.UpdatePassword(new Password("Nova1!Senha"));   // sobe a versão de segurança para 1
+
+        var principal = Validate(_service.Generate(op));
+
+        Assert.Equal("1", principal.FindFirstValue("security_version"));
+    }
+
+    // Guarda: o algoritmo já é HS256 hoje; o teste impede que mudem a assinatura sem a Api (que fixa HS256) saber.
+    [Fact]
+    public void Token_e_assinado_com_hs256()
+    {
+        var jwt = new JwtSecurityTokenHandler().ReadJwtToken(_service.Generate(NewOperator(ERole.Admin)));
+
+        Assert.Equal(SecurityAlgorithms.HmacSha256, jwt.Header.Alg);
     }
 
     [Fact]

@@ -1,6 +1,8 @@
 import { screen, waitFor } from "@testing-library/react";
 import { http } from "msw";
 import { describe, expect, it, vi } from "vitest";
+import { useAuth } from "../context/AuthContext";
+import { apiRequest } from "../lib/api-client";
 import { loginHandler } from "../test/handlers";
 import { adminSession, buildNotification, buildSession } from "../test/fixtures";
 import { toResponse } from "../test/envelope";
@@ -195,6 +197,76 @@ describe("LoginPage: falhas de comunicação", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Credenciais inválidas");
     expect(screen.queryByText(EXPIRED_NOTICE)).not.toBeInTheDocument();
+  });
+
+  describe("aviso de senha alterada", () => {
+    const PASSWORD_CHANGED_NOTICE = "Senha alterada. Faça login novamente.";
+
+    // Gatilhos que reproduzem, dentro do AuthProvider real, o fim de sessão por troca de senha e por 401.
+    function Gatilhos() {
+      const { signOutAfterPasswordChange } = useAuth();
+      return (
+        <>
+          <button type="button" onClick={signOutAfterPasswordChange}>
+            simular troca de senha
+          </button>
+          <button
+            type="button"
+            onClick={() => void apiRequest("/v1/qualquer", { authenticated: true }).catch(() => undefined)}
+          >
+            simular 401
+          </button>
+        </>
+      );
+    }
+
+    function renderLoginComGatilhos() {
+      return renderWithProviders(
+        <>
+          <Gatilhos />
+          <LoginPage />
+        </>,
+        { route: "/login" },
+      );
+    }
+
+    it('mostra "Senha alterada. Faça login novamente." quando a sessão acabou pela troca da senha', async () => {
+      const { user } = renderLoginComGatilhos();
+      expect(screen.queryByText(PASSWORD_CHANGED_NOTICE)).not.toBeInTheDocument();
+
+      await user.click(screen.getByRole("button", { name: "simular troca de senha" }));
+
+      expect(await screen.findByRole("status")).toHaveTextContent(PASSWORD_CHANGED_NOTICE);
+      expect(screen.queryByText(EXPIRED_NOTICE)).not.toBeInTheDocument();
+    });
+
+    it("o erro do login tem precedência sobre o aviso de senha alterada", async () => {
+      server.use(loginHandler({ kind: "failure", status: 401, message: "Credenciais inválidas" }));
+      const { user } = renderLoginComGatilhos();
+      await user.click(screen.getByRole("button", { name: "simular troca de senha" }));
+      expect(await screen.findByText(PASSWORD_CHANGED_NOTICE)).toBeInTheDocument();
+
+      await fillAndSubmit(user);
+
+      expect(await screen.findByRole("alert")).toHaveTextContent("Credenciais inválidas");
+      expect(screen.queryByText(PASSWORD_CHANGED_NOTICE)).not.toBeInTheDocument();
+    });
+
+    it("o aviso de senha alterada tem precedência sobre o de sessão encerrada", async () => {
+      server.use(
+        http.get(apiUrl("/v1/qualquer"), () =>
+          toResponse({ kind: "failure", status: 401, message: "Não autorizado" }),
+        ),
+      );
+      const { user } = renderLoginComGatilhos();
+      await user.click(screen.getByRole("button", { name: "simular 401" }));
+      expect(await screen.findByText(EXPIRED_NOTICE)).toBeInTheDocument();
+
+      await user.click(screen.getByRole("button", { name: "simular troca de senha" }));
+
+      expect(await screen.findByText(PASSWORD_CHANGED_NOTICE)).toBeInTheDocument();
+      expect(screen.queryByText(EXPIRED_NOTICE)).not.toBeInTheDocument();
+    });
   });
 
   it("aborta a chamada e não mostra erro quando a tela sai de vista com o envio em andamento", async () => {

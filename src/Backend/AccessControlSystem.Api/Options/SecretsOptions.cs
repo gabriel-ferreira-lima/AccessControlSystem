@@ -4,8 +4,8 @@ namespace AccessControlSystem.Api.Options {
 
     /// <summary>
     /// Segredos da Api (seção <c>Secrets</c>). Vêm de variáveis de ambiente, user-secrets ou do
-    /// <c>.env</c> do compose, nunca de <c>appsettings.json</c> versionado. A exigência de 256 bits
-    /// na chave é da spec de segurança; aqui basta estar presente.
+    /// <c>.env</c> do compose, nunca de <c>appsettings.json</c> versionado. A chave é obrigatória e o tamanho
+    /// mínimo (32 bytes, 256 bits) é conferido por <see cref="SecretsOptionsValidator"/>.
     /// </summary>
     public class SecretsOptions {
 

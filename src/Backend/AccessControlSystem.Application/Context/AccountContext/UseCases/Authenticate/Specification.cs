@@ -8,7 +8,8 @@ namespace AccessControlSystem.Application.Context.AccountContext.UseCases.Authen
         public static Contract<Notification> Ensure(Request request) {
             return new Contract<Notification>()
                 .Requires()
-                .Matches(request.Email, Email.Pattern, "Email", "E-mail inválido");
+                // Espaços nas pontas não invalidam: o handler normaliza o e-mail (Email VO) antes de usá-lo.
+                .Matches(request.Email?.Trim(), Email.Pattern, "Email", "E-mail inválido");
         }
     }
 }

@@ -273,6 +273,8 @@ public class ApiContractCompatTests : ApiTestBase
     public async Task Swagger_continua_gerando_o_documento_com_os_8_endpoints()
     {
         // Os comentários XML dos endpoints alimentam o Swagger; o contrato HTTP (e o api.ts) não muda.
+        // O Swagger só existe em Development (FR-003): o teste roda nesse ambiente. As asserções não mudam.
+        Factory.WithEnvironment("Development");
         var response = await GetAsync("swagger/v1/swagger.json");
         var body = await response.Content.ReadAsStringAsync();
 

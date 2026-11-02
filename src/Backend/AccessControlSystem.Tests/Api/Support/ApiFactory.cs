@@ -1,11 +1,17 @@
 using System.Collections.Concurrent;
+using System.Net;
+using AccessControlSystem.Application.Context.AccountContext.UseCases.Authenticate.Contracts;
 using AccessControlSystem.Application.SharedContext.Tenancy;
 using AccessControlSystem.Infrastructure.Catalog.Models;
 using AccessControlSystem.Tests.Infrastructure.Fixtures;
+using AccessControlSystem.Tests.Support;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace AccessControlSystem.Tests.Api.Support;
@@ -21,6 +27,12 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
     /// <summary>Chave de teste com mais de 256 bits (a Api e os tokens de teste usam a mesma).</summary>
     public const string JwtKey = "chave-de-teste-da-api-com-mais-de-256-bits-bbbbbbbbbbbbbbbbbbbb";
 
+    /// <summary>Emissor esperado pela Api nos testes (<c>Jwt:Issuer</c>); os tokens de teste o carregam.</summary>
+    public const string JwtIssuer = "acs-testes";
+
+    /// <summary>Destinatário esperado pela Api nos testes (<c>Jwt:Audience</c>); os tokens de teste o carregam.</summary>
+    public const string JwtAudience = "acs-testes-console";
+
     private readonly Dictionary<string, string?> _settings = new();
 
     public ApiFactory(PostgresContainerFixture database)
@@ -29,6 +41,8 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
         _settings[$"TenantDatabases:{PostgresContainerFixture.SharedCatalogDatabaseName}:ConnectionString"] = database.SharedAppConnectionString;
         _settings[$"TenantDatabases:{PostgresContainerFixture.DedicatedCatalogDatabaseName}:ConnectionString"] = database.DedicatedAppConnectionString;
         _settings["Secrets:JwtPrivateKey"] = JwtKey;
+        _settings["Jwt:Issuer"] = JwtIssuer;
+        _settings["Jwt:Audience"] = JwtAudience;
         _settings["Login:DefaultTenantId"] = null;
         _settings["HttpsRedirection:Enabled"] = "false";
     }
@@ -50,6 +64,82 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
     public ApiFactory WithTenantDatabase(string name, string connectionString) =>
         With($"TenantDatabases:{name}:ConnectionString", connectionString);
 
+    // "Testing" isola os testes de user-secrets e do appsettings.Development.json da máquina.
+    private string _environment = "Testing";
+    private bool _openProbe;
+    private IPAddress? _remoteIp;
+    private readonly List<Action<IServiceCollection>> _serviceOverrides = new();
+
+    /// <summary>
+    /// Substitui o serviço <typeparamref name="TService"/> da Api por esta instância. Só vale antes de a Api subir.
+    /// Permite, por exemplo, que duas Apis (dois tenants padrão) compartilhem o MESMO limitador de login.
+    /// </summary>
+    public ApiFactory WithSingleton<TService>(TService instance) where TService : class
+    {
+        _serviceOverrides.Add(services => services.AddSingleton(instance));
+        return this;
+    }
+
+    /// <summary>
+    /// Troca o relógio da Api (<see cref="TimeProvider"/>) por um relógio falso, para testar bloqueio e espera sem
+    /// esperar de verdade. O relógio falso começa no instante real, então a validade de tokens não é afetada.
+    /// </summary>
+    public ApiFactory WithFakeTime(FakeTimeProvider fake) => WithSingleton<TimeProvider>(fake);
+
+    /// <summary>Conta as verificações de hash do login (delegando ao verificador real). Ver <see cref="PasswordVerifications"/>.</summary>
+    public ApiFactory WithCountingPasswordVerifier()
+    {
+        PasswordVerifications = new CountingPasswordVerifier();
+        return WithSingleton<IPasswordVerifier>(PasswordVerifications);
+    }
+
+    /// <summary>O contador instalado por <see cref="WithCountingPasswordVerifier"/>; <c>null</c> se não foi pedido.</summary>
+    public CountingPasswordVerifier? PasswordVerifications { get; private set; }
+
+    /// <summary>
+    /// Define o endereço remoto da conexão (<c>Connection.RemoteIpAddress</c>) ANTES de <c>UseForwardedHeaders</c>:
+    /// o TestServer não tem IP remoto, e os testes de origem confiável precisam simular o proxy ou um cliente
+    /// qualquer. Só vale antes de a Api subir.
+    /// </summary>
+    public ApiFactory WithRemoteIp(IPAddress address)
+    {
+        _remoteIp = address;
+        return this;
+    }
+
+    private sealed class RemoteIpStartupFilter(IPAddress address) : IStartupFilter
+    {
+        public Action<IApplicationBuilder> Configure(Action<IApplicationBuilder> next) => app =>
+        {
+            app.Use((context, nextMiddleware) =>
+            {
+                context.Connection.RemoteIpAddress = address;
+                return nextMiddleware(context);
+            });
+            next(app);
+        };
+    }
+
+    /// <summary>
+    /// Troca o ambiente da Api (padrão <c>Testing</c>), por exemplo para <c>Development</c> ou <c>Production</c>.
+    /// Só vale antes de a Api subir.
+    /// </summary>
+    public ApiFactory WithEnvironment(string environment)
+    {
+        _environment = environment;
+        return this;
+    }
+
+    /// <summary>
+    /// Carrega o <see cref="OpenProbeController"/> (rota sem nenhuma regra de acesso) na Api. Só vale antes de
+    /// a Api subir; sem esta chamada a rota de prova não existe.
+    /// </summary>
+    public ApiFactory WithOpenProbeEndpoint()
+    {
+        _openProbe = true;
+        return this;
+    }
+
     private readonly ConcurrentQueue<CapturedLog> _logs = new();
 
     /// <summary>Tudo o que a Api registrou no log (categoria, nível e texto, com a exceção), para conferir o que foi (ou não) logado.</summary>
@@ -57,10 +147,31 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        // "Testing" isola os testes de user-secrets e do appsettings.Development.json da máquina.
-        builder.UseEnvironment("Testing");
+        builder.UseEnvironment(_environment);
         builder.ConfigureAppConfiguration((_, configuration) => configuration.AddInMemoryCollection(_settings));
         builder.ConfigureLogging(logging => logging.AddProvider(new CapturingLoggerProvider(_logs)));
+
+        if (_serviceOverrides.Count > 0)
+        {
+            var overrides = _serviceOverrides.ToArray();
+            builder.ConfigureTestServices(services =>
+            {
+                foreach (var apply in overrides) apply(services);
+            });
+        }
+
+        if (_remoteIp is not null)
+        {
+            var address = _remoteIp;
+            builder.ConfigureTestServices(services => services.AddSingleton<IStartupFilter>(new RemoteIpStartupFilter(address)));
+        }
+
+        if (_openProbe)
+        {
+            builder.ConfigureTestServices(services =>
+                services.AddControllers().ConfigureApplicationPartManager(manager =>
+                    manager.ApplicationParts.Add(new OpenProbeApplicationPart())));
+        }
     }
 
     public sealed record CapturedLog(string Category, LogLevel Level, string Text);

@@ -43,6 +43,150 @@ public class OptionsValidationTests : ApiTestBase
     }
 
     [Fact]
+    public void Api_nao_inicia_sem_jwt_issuer()
+    {
+        Factory.With("Jwt:Issuer", null);
+
+        var exception = Assert.ThrowsAny<Exception>(() => Factory.CreateClient());
+
+        var validation = FindValidationException(exception);
+        Assert.Contains(validation.Failures, f => f.Contains("Jwt:Issuer"));
+    }
+
+    [Fact]
+    public void Api_nao_inicia_sem_jwt_audience()
+    {
+        Factory.With("Jwt:Audience", null);
+
+        var exception = Assert.ThrowsAny<Exception>(() => Factory.CreateClient());
+
+        var validation = FindValidationException(exception);
+        Assert.Contains(validation.Failures, f => f.Contains("Jwt:Audience"));
+    }
+
+    // FR-012: o mínimo é de 32 bytes UTF-8 (a medida usada para assinar), não de caracteres.
+    [Theory]
+    [InlineData("0123456789012345678901234567890")]                       // 31 caracteres ASCII = 31 bytes
+    [InlineData("çççççççççççççç" + "ç")]                                 // 15 caracteres de 2 bytes = 30 bytes
+    [InlineData("                                        ")]              // só espaços (40): a chave é obrigatória
+    public void Api_nao_inicia_com_chave_menor_que_32_bytes(string key)
+    {
+        Factory.With("Secrets:JwtPrivateKey", key);
+
+        var exception = Assert.ThrowsAny<Exception>(() => Factory.CreateClient());
+
+        var validation = FindValidationException(exception);
+        Assert.Contains(validation.Failures, f => f.Contains("Secrets:JwtPrivateKey"));
+        // A mensagem diz qual configuração está errada, mas nunca revela o valor da chave.
+        if (!string.IsNullOrWhiteSpace(key))
+            Assert.All(validation.Failures, f => Assert.DoesNotContain(key, f));
+    }
+
+    // Guarda de limite: exatamente 32 bytes é aceito (inclusive 16 caracteres de 2 bytes).
+    [Theory]
+    [InlineData("01234567890123456789012345678901")]                      // 32 caracteres ASCII = 32 bytes
+    [InlineData("çççççççççççççççç")]                                      // 16 caracteres de 2 bytes = 32 bytes
+    public async Task Api_inicia_com_chave_de_exatamente_32_bytes(string key)
+    {
+        Factory.With("Secrets:JwtPrivateKey", key);
+
+        // Não lança na partida; a rota protegida responde 401 sem token.
+        var response = await GetAsync("v1/account/get-me");
+
+        Assert.Equal(401, (int)response.StatusCode);
+    }
+
+    // FR-016: o limite de login por origem é configurável, mas com piso e teto, para um valor errado não desligar a proteção.
+    [Theory]
+    [InlineData("LoginProtection:Ip:PermitLimit", "0")]
+    [InlineData("LoginProtection:Ip:PermitLimit", "1001")]
+    [InlineData("LoginProtection:Ip:WindowSeconds", "0")]
+    [InlineData("LoginProtection:Ip:WindowSeconds", "3601")]
+    public void Api_nao_inicia_com_limite_por_ip_fora_da_faixa(string key, string value)
+    {
+        Factory.With(key, value);
+
+        var exception = Assert.ThrowsAny<Exception>(() => Factory.CreateClient());
+
+        var validation = FindValidationException(exception);
+        Assert.Contains(validation.Failures, f => f.Contains(key));
+    }
+
+    // Guarda de limite: os extremos válidos sobem.
+    [Theory]
+    [InlineData("LoginProtection:Ip:PermitLimit", "1")]
+    [InlineData("LoginProtection:Ip:PermitLimit", "1000")]
+    [InlineData("LoginProtection:Ip:WindowSeconds", "1")]
+    [InlineData("LoginProtection:Ip:WindowSeconds", "3600")]
+    public async Task Api_inicia_com_os_extremos_validos_do_limite_por_ip(string key, string value)
+    {
+        Factory.With(key, value);
+
+        var response = await GetAsync("v1/account/get-me");
+
+        Assert.Equal(401, (int)response.StatusCode);
+    }
+
+    // FR-021/FR-032: o limite por conta também é configurável, com piso e teto, e as regras entre campos protegem o
+    // registro (a espera máxima não pode ser menor que a primeira, e o descarte não pode vir antes do fim de um bloqueio).
+    [Theory]
+    [InlineData("LoginProtection:Account:MaxFailures", "2")]
+    [InlineData("LoginProtection:Account:MaxFailures", "101")]
+    [InlineData("LoginProtection:Account:BaseWaitSeconds", "0")]
+    [InlineData("LoginProtection:Account:BaseWaitSeconds", "3601")]
+    [InlineData("LoginProtection:Account:MaxWaitSeconds", "0")]
+    [InlineData("LoginProtection:Account:MaxWaitSeconds", "86401")]
+    [InlineData("LoginProtection:Account:IdleExpirySeconds", "0")]
+    [InlineData("LoginProtection:Account:IdleExpirySeconds", "86401")]
+    [InlineData("LoginProtection:Account:MaxTrackedAccounts", "99")]
+    [InlineData("LoginProtection:Account:MaxTrackedAccounts", "10000001")]
+    public void Api_nao_inicia_com_limite_por_conta_fora_da_faixa(string key, string value)
+    {
+        Factory.With(key, value);
+
+        var exception = Assert.ThrowsAny<Exception>(() => Factory.CreateClient());
+
+        var validation = FindValidationException(exception);
+        Assert.Contains(validation.Failures, f => f.Contains(key));
+    }
+
+    [Fact]
+    public void Api_nao_inicia_com_espera_maxima_menor_que_a_primeira_espera()
+    {
+        Factory.With("LoginProtection:Account:BaseWaitSeconds", "120").With("LoginProtection:Account:MaxWaitSeconds", "60");
+
+        var exception = Assert.ThrowsAny<Exception>(() => Factory.CreateClient());
+
+        Assert.Contains(FindValidationException(exception).Failures, f => f.Contains("LoginProtection:Account:MaxWaitSeconds"));
+    }
+
+    [Fact]
+    public void Api_nao_inicia_com_descarte_antes_do_fim_do_maior_bloqueio()
+    {
+        // Descartar o registro (600 s) antes de o maior bloqueio (900 s) acabar liberaria a conta no meio da espera.
+        Factory.With("LoginProtection:Account:IdleExpirySeconds", "600");
+
+        var exception = Assert.ThrowsAny<Exception>(() => Factory.CreateClient());
+
+        Assert.Contains(FindValidationException(exception).Failures, f => f.Contains("LoginProtection:Account:IdleExpirySeconds"));
+    }
+
+    // Guarda de limite: os extremos válidos sobem.
+    [Theory]
+    [InlineData("LoginProtection:Account:MaxFailures", "3")]
+    [InlineData("LoginProtection:Account:MaxFailures", "100")]
+    [InlineData("LoginProtection:Account:MaxTrackedAccounts", "100")]
+    [InlineData("LoginProtection:Account:MaxTrackedAccounts", "10000000")]
+    public async Task Api_inicia_com_os_extremos_validos(string key, string value)
+    {
+        Factory.With(key, value);
+
+        var response = await GetAsync("v1/account/get-me");
+
+        Assert.Equal(401, (int)response.StatusCode);
+    }
+
+    [Fact]
     public void Api_nao_inicia_sem_a_connection_string_do_catalogo()
     {
         Factory.With("ConnectionStrings:Catalog", null);

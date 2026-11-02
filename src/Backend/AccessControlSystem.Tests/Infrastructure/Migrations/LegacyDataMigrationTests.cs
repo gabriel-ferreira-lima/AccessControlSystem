@@ -152,7 +152,11 @@ public class LegacyDataMigrationTests : ApiTestBase
         var second = await runner.RunAsync(database.Migrator, CancellationToken.None, initialTenant);
 
         Assert.True(second.Succeeded, second.Error);
-        Assert.Equal(EnforceMigration, second.SchemaVersion);
+        // A versão final do esquema é a ÚLTIMA migration do assembly (cada spec nova pode acrescentar uma); que a
+        // migration de isolamento ficou aplicada é conferido no histórico, logo abaixo.
+        Assert.Equal(AppMigrations.LatestId(), second.SchemaVersion);
+        var historyAfterSecondRun = await DatabaseProbe.ReadHistoryAsync(database.Migrator);
+        Assert.Contains(EnforceMigration, historyAfterSecondRun);
         Assert.Equal(before, await DatabaseProbe.ReadStringsAsync(database.Migrator, RowSnapshotSql));
         Assert.Equal(4L, await DatabaseProbe.CountAsync(
             database.Migrator, $"select count(*) from operators where tenant_id = '{initialTenant}'"));

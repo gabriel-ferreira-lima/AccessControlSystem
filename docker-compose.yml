@@ -5,6 +5,9 @@
 #   backend            5290  tenant A (base compartilhada shared_01)
 #   backend-b          5291  tenant B (base compartilhada shared_01)
 #   backend-dedicated  5292  tenant D (base dedicada dedicated_01)
+# As portas das Apis e do banco ficam publicadas SÓ em 127.0.0.1 (acessíveis apenas da própria máquina, não da
+# rede). Só o console (nginx) é publicado como antes. O nginx tem IP fixo numa sub-rede fixa: é o único proxy
+# cujos cabeçalhos X-Forwarded-* as Apis aceitam.
 # As Apis NÃO aplicam migrations: quem as aplica é o Migrator.
 name: access-control-system
 
@@ -20,6 +23,18 @@ x-backend-environment: &backend-environment
   TenantDatabases__dedicated_01__ConnectionString: "Host=db;Port=5432;Database=acs_dedicated_01;Username=acs_app;Password=${ACS_APP_PASSWORD}"
   # Segredos — vêm do .env (não versionado). Ver .env.example.
   Secrets__JwtPrivateKey: ${JWT_PRIVATE_KEY:?defina JWT_PRIVATE_KEY no .env}
+  # Identidade do token (não são segredos): a Api só aceita tokens emitidos com este emissor e este destinatário.
+  # Em homologação e produção os valores devem ser diferentes (um token de um ambiente não vale em outro).
+  Jwt__Issuer: ${JWT_ISSUER:-access-control-system}
+  Jwt__Audience: ${JWT_AUDIENCE:-access-control-system-console}
+  # Único proxy cujos X-Forwarded-For/Proto a Api aceita: o nginx do console, com o IP fixo abaixo (ver "networks").
+  # De qualquer outra origem o cabeçalho é ignorado, e o limite de login usa o endereço real da conexão.
+  ForwardedHeaders__KnownProxies__0: "172.31.250.10"
+  # Limite de login por origem. Padrão 20 por minuto; só mude para a medição do quickstart (faixa 1 a 1000) e volte.
+  LoginProtection__Ip__PermitLimit: ${LOGIN_IP_PERMIT_LIMIT:-20}
+  # Limite de login por conta: tentativas por nível até bloquear (padrão 5). Só mude para a medição do quickstart
+  # (faixa 3 a 100) e volte.
+  LoginProtection__Account__MaxFailures: ${LOGIN_MAX_FAILURES:-5}
 
 x-backend: &backend
   build:
@@ -43,7 +58,7 @@ services:
       ACS_MIGRATOR_PASSWORD: ${ACS_MIGRATOR_PASSWORD:?defina ACS_MIGRATOR_PASSWORD no .env}
       ACS_APP_PASSWORD: ${ACS_APP_PASSWORD:?defina ACS_APP_PASSWORD no .env}
     ports:
-      - "${DB_PORT:-5433}:5432"
+      - "127.0.0.1:${DB_PORT:-5433}:5432"
     volumes:
       - pg-data:/var/lib/postgresql
       # Papéis e bancos: criados só quando o volume está vazio.
@@ -95,7 +110,7 @@ services:
       <<: *backend-environment
       Login__DefaultTenantId: "11111111-1111-1111-1111-111111111111"
     ports:
-      - "${BACKEND_PORT:-5290}:8080"
+      - "127.0.0.1:${BACKEND_PORT:-5290}:8080"
 
   # Tenant B (mesma base compartilhada do A, outro tenant).
   backend-b:
@@ -105,7 +120,7 @@ services:
       <<: *backend-environment
       Login__DefaultTenantId: "22222222-2222-2222-2222-222222222222"
     ports:
-      - "${BACKEND_B_PORT:-5291}:8080"
+      - "127.0.0.1:${BACKEND_B_PORT:-5291}:8080"
 
   # Tenant D (base dedicada).
   backend-dedicated:
@@ -115,7 +130,7 @@ services:
       <<: *backend-environment
       Login__DefaultTenantId: "33333333-3333-3333-3333-333333333333"
     ports:
-      - "${BACKEND_DEDICATED_PORT:-5292}:8080"
+      - "127.0.0.1:${BACKEND_DEDICATED_PORT:-5292}:8080"
 
   frontend:
     build:
@@ -128,6 +143,18 @@ services:
       - backend
     ports:
       - "${FRONTEND_PORT:-5173}:80"
+    # IP fixo: é o proxy conhecido das Apis (ForwardedHeaders__KnownProxies__0).
+    networks:
+      default:
+        ipv4_address: 172.31.250.10
+
+# Rede padrão com sub-rede fixa, para o IP do nginx não mudar. Se colidir com outra rede da sua máquina, troque a
+# sub-rede, o ipv4_address do frontend e o ForwardedHeaders__KnownProxies__0 acima (os três juntos).
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: 172.31.250.0/24
 
 volumes:
   pg-data:

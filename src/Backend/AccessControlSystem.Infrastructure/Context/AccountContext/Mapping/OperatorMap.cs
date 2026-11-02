@@ -41,6 +41,13 @@ namespace AccessControlSystem.Infrastructure.Context.AccountContext.Mapping {
                 .HasColumnName("is_active")
                 .HasDefaultValue(true)
                 .IsRequired(true);
+
+            // Versão de segurança: o token só vale se carregar a versão atual (troca de senha, de perfil e
+            // desativação a incrementam). DEFAULT 0 mantém a versão anterior da Api compatível com a coluna.
+            builder.Property(x => x.SecurityVersion)
+                .HasColumnName("security_version")
+                .HasDefaultValue(0)
+                .IsRequired(true);
         }
     }
 }

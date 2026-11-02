@@ -8,12 +8,14 @@ using AccessControlSystem.Infrastructure.Services;
 using AccessControlSystem.Infrastructure.Tenancy;
 using Flunt.Notifications;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
-using System.Text;
+using System.Net;
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
 
@@ -24,15 +26,36 @@ namespace AccessControlSystem.Api.Extensions {
 
         public static void AddConfiguration(this WebApplicationBuilder builder) {
 
-            // Segredo obrigatório: a Api não inicia sem a chave do JWT (a exigência de 256 bits é da spec de segurança).
+            // Segredo obrigatório: a Api não inicia sem a chave do JWT, nem com chave de menos de 32 bytes (256 bits).
             builder.Services.AddOptions<SecretsOptions>()
                 .BindConfiguration(SecretsOptions.SectionName)
+                .ValidateDataAnnotations()
+                .ValidateOnStart();
+            builder.Services.TryAddEnumerable(
+                ServiceDescriptor.Singleton<IValidateOptions<SecretsOptions>, SecretsOptionsValidator>());
+
+            // Emissor e destinatário do token: obrigatórios e validados na partida (a Api só aceita tokens com eles).
+            builder.Services.AddOptions<JwtOptions>()
+                .BindConfiguration(JwtOptions.SectionName)
                 .ValidateDataAnnotations()
                 .ValidateOnStart();
 
             // Sem ValidateOnStart de propósito: sem tenant padrão só o login é afetado (responde 401 e loga o motivo).
             builder.Services.AddOptions<LoginOptions>()
                 .BindConfiguration(LoginOptions.SectionName);
+
+            // Proxies cujos X-Forwarded-* valem: IP ou CIDR inválido derruba a partida (e a chave vai na mensagem).
+            builder.Services.AddOptions<TrustedProxyOptions>()
+                .BindConfiguration(TrustedProxyOptions.SectionName)
+                .ValidateOnStart();
+            builder.Services.TryAddEnumerable(
+                ServiceDescriptor.Singleton<IValidateOptions<TrustedProxyOptions>, TrustedProxyOptionsValidator>());
+
+            // Limite de login por origem, com piso e teto validados na partida.
+            builder.Services.AddOptions<LoginRateLimitOptions>()
+                .BindConfiguration(LoginRateLimitOptions.SectionName)
+                .ValidateDataAnnotations()
+                .ValidateOnStart();
         }
 
         public static void AddDatabase(this WebApplicationBuilder builder) {
@@ -42,7 +65,7 @@ namespace AccessControlSystem.Api.Extensions {
         }
 
         public static void AddJwtAuthentication(this WebApplicationBuilder builder) {
-            builder.Services.AddScoped<IActiveSessionChecker, ActiveSessionChecker>();
+            builder.Services.AddScoped<ISessionValidator, SessionValidator>();
 
             builder.Services
                 .AddAuthentication(x => {
@@ -51,9 +74,17 @@ namespace AccessControlSystem.Api.Extensions {
                 }).AddJwtBearer(x => {
                     x.RequireHttpsMetadata = false;
                     x.SaveToken = true;
+                    // Emissor, destinatário e chave vêm das opções (Configure abaixo). Aqui ficam as regras fixas: só HS256,
+                    // validade obrigatória e tolerância de relógio curta (30 s).
                     x.TokenValidationParameters = new TokenValidationParameters {
-                        ValidateIssuer = false,
-                        ValidateAudience = false
+                        ValidateIssuer = true,
+                        ValidateAudience = true,
+                        ValidateLifetime = true,
+                        RequireExpirationTime = true,
+                        RequireSignedTokens = true,
+                        ValidateIssuerSigningKey = true,
+                        ClockSkew = TimeSpan.FromSeconds(30),
+                        ValidAlgorithms = [SecurityAlgorithms.HmacSha256]
                     };
                     x.Events = new JwtBearerEvents {
                         OnMessageReceived = context => {
@@ -77,6 +108,13 @@ namespace AccessControlSystem.Api.Extensions {
                                 return;
                             }
 
+                            // A versão de segurança também vem da claim assinada. Token sem ela (ou com ela malformada) é
+                            // recusado AQUI, antes de qualquer consulta ao catálogo ou à base do tenant.
+                            if (context.Principal.SecurityVersion() is not int securityVersion) {
+                                context.Fail("Token sem versão de segurança válida.");
+                                return;
+                            }
+
                             var services = context.HttpContext.RequestServices;
 
                             // Consulta o catálogo a cada requisição (sem cache): tenant inexistente ou inativo é recusado.
@@ -88,10 +126,11 @@ namespace AccessControlSystem.Api.Extensions {
                             }
 
                             // Só depois do tenant resolvido a sessão pode ser conferida (sob o RLS do tenant).
-                            var checker = services.GetRequiredService<IActiveSessionChecker>();
+                            var validator = services.GetRequiredService<ISessionValidator>();
 
-                            if (!await checker.IsActiveAsync(operatorId, context.HttpContext.RequestAborted)) {
-                                context.Fail("Conta desativada.");
+                            // Uma única consulta: operador existente, ativo e com a versão de segurança do token.
+                            if (!await validator.IsValidAsync(operatorId, securityVersion, context.HttpContext.RequestAborted)) {
+                                context.Fail("Sessão inválida.");
                             }
                         },
                         OnChallenge = async context => {
@@ -108,14 +147,23 @@ namespace AccessControlSystem.Api.Extensions {
                     };
                 });
 
-            // A chave vem das opções (lida quando a validação do token é montada, não na partida do builder).
+            // A chave, o emissor e o destinatário vêm das opções (lidos quando a validação do token é montada, não na
+            // partida do builder). Os mesmos bytes da chave (JwtSigningKey) assinam o token e validam a assinatura.
             builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
-                .Configure<IOptions<SecretsOptions>>((jwt, secrets) => {
-                    jwt.TokenValidationParameters.IssuerSigningKey =
-                        new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secrets.Value.JwtPrivateKey));
+                .Configure<IOptions<SecretsOptions>, IOptions<JwtOptions>>((jwtBearer, secrets, jwt) => {
+                    jwtBearer.TokenValidationParameters.IssuerSigningKey =
+                        new SymmetricSecurityKey(JwtSigningKey.GetBytes(secrets.Value.JwtPrivateKey));
+                    jwtBearer.TokenValidationParameters.ValidIssuer = jwt.Value.Issuer;
+                    jwtBearer.TokenValidationParameters.ValidAudience = jwt.Value.Audience;
                 });
 
-            builder.Services.AddAuthorization();
+            // Fechado por padrão (Princípio IX): todo endpoint exige usuário autenticado, sem precisar declarar.
+            // Rota anônima só com [AllowAnonymous] explícito (hoje: o login). Rota inexistente continua 404.
+            builder.Services.AddAuthorization(options => {
+                options.FallbackPolicy = new AuthorizationPolicyBuilder()
+                    .RequireAuthenticatedUser()
+                    .Build();
+            });
         }
 
         public static void AddControllersConfiguration(this WebApplicationBuilder builder) {
@@ -160,14 +208,19 @@ namespace AccessControlSystem.Api.Extensions {
 
         public static void AddRateLimiting(this WebApplicationBuilder builder) {
             builder.Services.AddRateLimiter(options => {
-                options.AddPolicy("login", http =>
-                    RateLimitPartition.GetFixedWindowLimiter(
+                // Por origem: o endereço que sobra depois do UseForwardedHeaders (só confia no proxy conhecido). Origem
+                // ausente fica agrupada numa chave estável ("unknown"): o limite nunca é desligado.
+                options.AddPolicy("login", http => {
+                    var limit = http.RequestServices.GetRequiredService<IOptions<LoginRateLimitOptions>>().Value;
+
+                    return RateLimitPartition.GetFixedWindowLimiter(
                         partitionKey: http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
                         factory: _ => new FixedWindowRateLimiterOptions {
-                            PermitLimit = 20,
-                            Window = TimeSpan.FromMinutes(1),
+                            PermitLimit = limit.PermitLimit,
+                            Window = TimeSpan.FromSeconds(limit.WindowSeconds),
                             QueueLimit = 0
-                        }));
+                        });
+                });
 
                 options.OnRejected = async (context, ct) => {
                     context.HttpContext.Response.StatusCode = 429;
@@ -182,11 +235,29 @@ namespace AccessControlSystem.Api.Extensions {
         }
 
         public static void AddForwardedHeaders(this WebApplicationBuilder builder) {
-            builder.Services.Configure<ForwardedHeadersOptions>(options => {
-                options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
-                options.KnownIPNetworks.Clear();
-                options.KnownProxies.Clear();
-            });
+            builder.Services.AddOptions<ForwardedHeadersOptions>()
+                .Configure<IOptions<TrustedProxyOptions>>((options, trusted) => {
+                    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+
+                    // Só o último salto (o que o proxy conhecido acrescentou) conta; endereços forjados à esquerda são ignorados.
+                    options.ForwardLimit = 1;
+
+                    // NUNCA Clear(): no ASP.NET Core, KnownProxies e KnownIPNetworks AMBAS vazias significam "confiar em
+                    // qualquer origem", e aí qualquer cliente forja X-Forwarded-For e contorna o limite por IP. Sem
+                    // configuração valem só os padrões do framework (loopback); os valores configurados são ACRESCENTADOS.
+                    // Valor inválido já derrubou a partida (TrustedProxyOptionsValidator); aqui basta ignorá-lo.
+                    foreach (var proxy in trusted.Value.KnownProxies) {
+                        if (IPAddress.TryParse(proxy, out var address)) {
+                            options.KnownProxies.Add(address);
+                        }
+                    }
+
+                    foreach (var network in trusted.Value.KnownNetworks) {
+                        if (System.Net.IPNetwork.TryParse(network, out var parsed)) {
+                            options.KnownIPNetworks.Add(parsed);
+                        }
+                    }
+                });
         }
 
         public static void AddSwaggerDocumentation(this WebApplicationBuilder builder) {

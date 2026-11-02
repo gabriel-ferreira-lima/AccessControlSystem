@@ -16,7 +16,7 @@ interface LocationState {
 }
 
 export function LoginPage() {
-  const { session, sessionExpired, signIn } = useAuth();
+  const { session, sessionExpired, passwordChanged, signIn } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const destination = (location.state as LocationState | null)?.from ?? "/";
@@ -76,6 +76,8 @@ export function LoginPage() {
         <form className="auth__form" onSubmit={handleSubmit} noValidate>
           {error ? (
             <Alert tone="error" title={error.message} notifications={error.notifications} />
+          ) : passwordChanged ? (
+            <Alert tone="info" title="Senha alterada. Faça login novamente." />
           ) : sessionExpired ? (
             <Alert tone="info" title="Sua sessão foi encerrada. Faça login novamente." />
           ) : null}

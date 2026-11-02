@@ -1,6 +1,7 @@
 using AccessControlSystem.Domain.Contexts.AccountContext.Enums;
 using AccessControlSystem.Tests.Api.Support;
 using AccessControlSystem.Tests.Infrastructure.Fixtures;
+using AccessControlSystem.Tests.Infrastructure.Tenancy;
 
 namespace AccessControlSystem.Tests.Api;
 
@@ -17,27 +18,17 @@ public class EndpointAuthorizationTests : ApiTestBase
     {
     }
 
-    /// <summary>Os 7 endpoints que exigem token (todos menos o login).</summary>
+    /// <summary>Os endpoints que exigem token (todos menos o login), vindos do <see cref="EndpointCatalog"/> (hoje 7).</summary>
     public static IEnumerable<object[]> AuthenticatedEndpoints =>
-    [
-        ["POST", "v1/account/create"],
-        ["GET", "v1/account/get-me"],
-        ["GET", "v1/account/get-list"],
-        ["PUT", "v1/account/update-me"],
-        ["PUT", $"v1/account/update/{AnyId}"],
-        ["PUT", $"v1/account/activate/{AnyId}"],
-        ["PUT", $"v1/account/deactivate/{AnyId}"],
-    ];
+        EndpointCatalog.Entries
+            .Where(entry => entry.Access != EndpointAccess.Anonymous)
+            .Select(entry => new object[] { entry.Method, entry.Route });
 
-    /// <summary>Os 5 endpoints que só o admin pode chamar.</summary>
+    /// <summary>Os endpoints que só o admin pode chamar, vindos do <see cref="EndpointCatalog"/> (hoje 5).</summary>
     public static IEnumerable<object[]> AdminEndpoints =>
-    [
-        ["POST", "v1/account/create"],
-        ["GET", "v1/account/get-list"],
-        ["PUT", $"v1/account/update/{AnyId}"],
-        ["PUT", $"v1/account/activate/{AnyId}"],
-        ["PUT", $"v1/account/deactivate/{AnyId}"],
-    ];
+        EndpointCatalog.Entries
+            .Where(entry => entry.Access == EndpointAccess.AdminOnly)
+            .Select(entry => new object[] { entry.Method, entry.Route });
 
     private Task<HttpResponseMessage> CallAsync(string method, string route, string? token) =>
         SendAsync(new HttpMethod(method), route.Replace(AnyId, Guid.NewGuid().ToString()), token, body: new { });
@@ -101,4 +92,54 @@ public class EndpointAuthorizationTests : ApiTestBase
         Assert.NotEqual(401, (int)response.StatusCode);
         Assert.NotEqual(403, (int)response.StatusCode);
     }
+
+    [Theory]
+    [InlineData("não é um jwt")]
+    [InlineData("eyJhbGciOiJIUzI1NiJ9.e30.assinatura-invalida")]
+    public async Task Login_ignora_token_enviado_e_continua_anonimo(string bearer)
+    {
+        var (tenantId, @operator) = await TenantWithOperatorAsync(ERole.Operator);
+        Factory.WithDefaultTenant(tenantId);
+
+        // Um token (inválido, no caso) enviado ao login é ignorado: nunca o barra.
+        var response = await LoginAsync(@operator.Email, OperatorPassword, bearerToken: bearer);
+
+        Assert.Equal(200, (int)response.StatusCode);
+    }
+
+    #region Token emitido ANTES de uma troca (FR-004 a FR-006, FR-029): todo endpoint autenticado o recusa
+
+    private async Task AssertTokenAntigoRecusadoAsync(
+        string method, string route, Func<Guid, Guid, Task> change)
+    {
+        var (tenantId, admin) = await TenantWithOperatorAsync();
+        var tokenAntigo = TestTokens.For(admin, tenantId);   // emitido antes da mudança
+
+        await change(tenantId, admin.Id);                    // mudança pelo MÉTODO DE DOMÍNIO
+
+        var envelope = await ReadAsync(await CallAsync(method, route, tokenAntigo));
+
+        Assert.Equal(401, envelope.HttpStatus);
+        Assert.Equal("Não autenticado", envelope.Message);
+    }
+
+    [Theory]
+    [MemberData(nameof(AuthenticatedEndpoints))]
+    public Task Token_antigo_depois_de_troca_de_senha_retorna_401(string method, string route) =>
+        AssertTokenAntigoRecusadoAsync(method, route,
+            (tenantId, operatorId) => Database.ChangePasswordAsync(tenantId, operatorId));
+
+    [Theory]
+    [MemberData(nameof(AuthenticatedEndpoints))]
+    public Task Token_antigo_depois_de_troca_de_perfil_retorna_401(string method, string route) =>
+        AssertTokenAntigoRecusadoAsync(method, route,
+            (tenantId, operatorId) => Database.ChangeRoleAsync(tenantId, operatorId, ERole.Operator));
+
+    [Theory]
+    [MemberData(nameof(AuthenticatedEndpoints))]
+    public Task Token_antigo_depois_de_desativacao_retorna_401(string method, string route) =>
+        AssertTokenAntigoRecusadoAsync(method, route,
+            (tenantId, operatorId) => Database.DeactivateAsync(tenantId, operatorId));
+
+    #endregion
 }
