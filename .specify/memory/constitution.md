@@ -289,9 +289,11 @@ design DEVE partir do pressuposto de que a Api está exposta a atacantes.
 - **Banco**: o usuário de banco da aplicação NÃO DEVE ter permissão de DDL. Migrations rodam em
   processo separado, com usuário próprio: o passo de migrations do pipeline de entrega (seção
   "Branches, ambientes e entrega"), e o provisionamento ao criar uma base nova.
-- **Dependências**: o CI DEVE falhar com pacote vulnerável conhecido (`dotnet list package
-  --vulnerable`, `npm audit`). Suprimir um alerta exige comentário com justificativa, como o
-  `NU1903` em `AccessControlSystem.Tests.csproj`.
+- **Dependências**: o CI DEVE falhar com pacote vulnerável conhecido, direto ou transitivo, de
+  qualquer severidade (NuGet Audit como erro no restore, via `src/Backend/Directory.Build.props`;
+  `npm audit` no front). Uma exceção DEVE ser por aviso (GHSA) e no menor escopo, com comentário
+  de justificativa ao lado, como os `NuGetAuditSuppress` do `SSH.NET` em
+  `AccessControlSystem.Tests.csproj`. NÃO DEVE existir supressão geral (`NoWarn` de `NU19xx`).
 
 **Por quê:** num sistema de controle de acesso, uma falha de segurança na Api abre portas
 físicas. Cada regra acima corresponde a um problema real encontrado no código atual (ver
@@ -521,7 +523,8 @@ muito mais.
   - `dotnet build Backend.slnx` sem erros (em `src/Backend`);
   - `dotnet test Backend.slnx` (com Docker ligado para os testes de integração);
   - `npm run typecheck`, `npm test` e `npm run build` em `src/Frontend`, se o frontend mudou;
-  - verificação de pacotes vulneráveis (`dotnet list package --vulnerable`, `npm audit`);
+  - verificação de pacotes vulneráveis (`dotnet restore Backend.slnx` com o NuGet Audit, e
+    `npm audit` em `src/Frontend`);
   - cenário k6 curto da spec, contra o ambiente local, quando a spec tocar um caminho crítico
     (Princípio XIII).
 - Mudança de contrato da API (rota, campos, status) DEVE atualizar no mesmo trabalho: os
@@ -591,17 +594,12 @@ código novo; cada um é corrigido por spec própria.
 - `AddRateLimiting`: guardado na memória da instância e sem limite por tenant (spec 06) (viola o
   Princípio XIII).
 - `PasswordAccess.Value`: PIN em texto puro (viola o Princípio IX).
-- `src/Frontend/nginx.conf`: sem HSTS nem cabeçalhos de segurança (viola o Princípio IX).
 - `Domain/Contexts/AccountContext/Enums/ERole.cs` + `[Authorize(Roles = "Admin")]` no
   `AccountContextController` + regra "último admin ativo" no `Deactivate`: roles fixas no código
   (viola o Princípio XII). A regra do último admin vira "último operador ativo com a role
   Administrador".
 - `src/Frontend/src/components/RequireRole.tsx` e as rotas de `App.tsx`: acesso por nome de role
   (`Admin`/`Operator`) (viola os Princípios VIII e XII).
-- CI do backend e do frontend sem verificação de pacotes vulneráveis
-  (`dotnet list package --vulnerable` e `npm audit`); em 2026-11-01 o `npm audit` de
-  `src/Frontend` aponta 2 vulnerabilidades high (vite <=6.4.3 e source-map-js) (viola o Princípio
-  IX). Será corrigido pela spec 04b (security-perimeter).
 - Entrega: não existem ambientes de homologação e produção, pipeline de deploy nem
   infraestrutura como código (o workflow do Azure App Service foi removido no commit `6dcb3e0`)
   (viola a seção "Branches, ambientes e entrega").
@@ -614,5 +612,5 @@ código novo; cada um é corrigido por spec própria.
 - `Domain/Contexts/UserContext`: `User.DateStart`/`DateEnd`, `Cpf.Validity` e `Rg.Validity` usam
   `DateTime` sem garantir `Kind = Utc` (viola a seção Operação).
 
-**Version**: 1.2.3 | **Ratified**: 2026-10-31 |
+**Version**: 1.2.4 | **Ratified**: 2026-10-31 |
 **Last Amended**: 2026-11-02
