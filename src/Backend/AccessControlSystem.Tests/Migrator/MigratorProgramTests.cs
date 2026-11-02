@@ -147,4 +147,28 @@ public class MigratorProgramTests
         var stored = read.Databases.Single(x => x.Name == databaseName);
         Assert.Equal(EMigrationStatus.Succeeded, stored.MigrationStatus);
     }
+
+    [Fact]
+    public async Task Texto_de_uso_lista_os_quatro_verbos()
+    {
+        var output = new StringWriter();
+
+        var code = await MigratorApplication.RunAsync([], output: output);
+
+        Assert.Equal(ExitCodes.InvalidConfiguration, code);
+        Assert.Contains("migrate", output.ToString());
+        Assert.Contains("seed-dev", output.ToString());
+        Assert.Contains("seed-staging", output.ToString());
+        Assert.Contains("verify-no-seed-admin", output.ToString());
+    }
+
+    [Theory]
+    [InlineData("seed-staging")]
+    [InlineData("verify-no-seed-admin")]
+    public async Task Verbo_novo_com_argumento_extra_continua_sendo_invalido(string verb)
+    {
+        var code = await MigratorApplication.RunAsync([verb, "x"], output: new StringWriter());
+
+        Assert.Equal(ExitCodes.InvalidConfiguration, code);
+    }
 }

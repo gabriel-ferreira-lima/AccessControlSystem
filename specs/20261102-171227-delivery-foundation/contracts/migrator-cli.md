@@ -57,8 +57,9 @@ Sem argumento ou com verbo desconhecido: texto de uso listando os quatro verbos 
   `public`. Os dados fixos saem de `new SeedAdmin().UpOperations`, nunca de literais duplicados.
 - **Reprova** (código `7`) se **qualquer** base contiver o administrador fixo.
 - **Não consegue verificar** (código `8`): base cadastrada no catálogo sem connection string de
-  migração; connection string configurada para base que não está no catálogo; base inacessível.
-  Se houver `7` e `8`, sai `7` e a saída lista ambos.
+  migração; connection string configurada para base que não está no catálogo; base inacessível;
+  ou a leitura do administrador fixo na própria migration `SeedAdmin` falha (a migration mudou de
+  forma): nunca se aprova sem saber o que procurar. Se houver `7` e `8`, sai `7` e a saída lista ambos.
 - **"Não contém"** (aprova a base): base vazia ou sem as tabelas de operadores.
 - **Saída**: contagem de bases verificadas e, nas falhas, o **nome lógico** da base e o motivo
   curto. **Nunca** connection string, e-mail de pessoa, identificador de operador ou senha.

@@ -61,7 +61,8 @@ Lida **da própria migration** (`new SeedAdmin().UpOperations`), sem duplicar va
 | `Email` | valor da coluna `email` | `admin@admin.com.br` |
 
 Regras de reprovação (basta **uma**): `id = Id` **ou** `lower(email) = lower(Email)`. Se a
-migration mudar de forma e a extração falhar, o verbo **falha** (código `2`/exceção), nunca aprova.
+migration mudar de forma e a extração falhar, o verbo **falha** (código `8`, "não foi possível
+verificar"), nunca aprova.
 O hash da senha não é usado na busca. Teste fixa os dois literais **de forma independente**.
 
 ### Locais verificados

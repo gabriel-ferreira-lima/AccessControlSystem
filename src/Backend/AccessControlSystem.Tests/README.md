@@ -15,6 +15,8 @@ Application/
 Architecture/          NoStaticTenantStateTests   (nenhum estado estático com dado de tenant)
                        RequestTextLimitsTests     (todo campo string de todo Request tem limite de tamanho, por reflexão)
                        PackageAuditConfigTests    (NuGet Audit, exceção do SSH.NET por aviso, Dockerfiles e workflows de auditoria)
+                       FictitiousPasswordsNotInRepoTests (SC-010: nenhuma senha fictícia literal em código de produção,
+                       appsettings*.json, docker-compose*.yml e .github/; com não vacuidade e controle negativo)
 Infrastructure/
   Fixtures/            PostgresContainerFixture, PostgresRoleBootstrap, DatabaseProbe,
                        AppRoleProbe (sonda de privilégios de um papel), CanaryRole (papel descartável)
@@ -26,7 +28,11 @@ Infrastructure/
   Catalog/             mapeamento e leitura do catálogo (TenantCatalog)
   Migrations/          adoção de base legada (LegacyDataMigrationTests)
   AccountContext/...            testes de repositório de cada use case (com casos de isolamento)
-Migrator/              executor, catálogo, orquestrador, verbos (migrate e seed-dev), códigos de saída
+Migrator/              executor, catálogo, orquestrador, verbos (migrate e seed-dev), códigos de saída;
+                       os verbos de homologação: SeedStagingCommandTests (seed-staging: só Staging, idempotente, sem o
+                       administrador fixo), VerifyNoSeedAdminCommandTests (verify-no-seed-admin: reprova por qualquer
+                       dado fixo, só lê), SeedAdminFingerprintTests (id e e-mail lidos da própria migration SeedAdmin) e
+                       StagingTestSupport (ambiente isolado e base contaminada de verdade, sem a SeedAdminPolicy)
 Api/                   TokenService, validação do JWT e do tenant, login padrão, autorização,
                        contrato dos 8 endpoints, opções (WebApplicationFactory em Api/Support/),
                        InputLimitsApiTests (400 "Requisição inválida" para campo acima do tamanho máximo),

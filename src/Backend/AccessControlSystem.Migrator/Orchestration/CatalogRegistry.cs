@@ -71,6 +71,28 @@ namespace AccessControlSystem.Migrator.Orchestration {
                 .ToListAsync(cancellationToken);
         }
 
+        /// <summary>
+        /// Próxima página de TODAS as bases do catálogo (qualquer situação), por chave (<c>id &gt; afterId</c>), como o
+        /// <see cref="ListEligibleAsync"/>. Usada pela verificação do administrador fixo, que precisa percorrer todas.
+        /// </summary>
+        public virtual async Task<IReadOnlyList<CatalogDatabase>> ListPageAsync(
+            Guid? afterId, int size, CancellationToken cancellationToken = default) {
+
+            await using var context = new CatalogDbContext(_options);
+
+            var query = context.Databases.AsNoTracking();
+
+            if (afterId.HasValue) {
+                var after = afterId.Value;
+                query = query.Where(x => x.Id.CompareTo(after) > 0);
+            }
+
+            return await query
+                .OrderBy(x => x.Id)
+                .Take(size)
+                .ToListAsync(cancellationToken);
+        }
+
         public async Task<int> CountAsync(CancellationToken cancellationToken = default) {
             await using var context = new CatalogDbContext(_options);
             return await context.Databases.CountAsync(cancellationToken);
