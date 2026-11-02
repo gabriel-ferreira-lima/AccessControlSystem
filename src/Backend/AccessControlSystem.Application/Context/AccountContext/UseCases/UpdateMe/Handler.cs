@@ -19,7 +19,7 @@ namespace AccessControlSystem.Application.Context.AccountContext.UseCases.Update
                 var res = Specification.Ensure(request);
 
                 if (!res.IsValid) {
-                    return new Response("Requsição inválida", 400, res.Notifications);
+                    return new Response("Requisição inválida", 400, res.Notifications);
                 }
                 #endregion
 
@@ -27,7 +27,7 @@ namespace AccessControlSystem.Application.Context.AccountContext.UseCases.Update
                 var @operator = await _repository.GetOperatorByIdAsync(request.Id, cancellationToken);
 
                 if (@operator == null) {
-                    return new Response("Sessão invalida - faça o login novamente", 401);
+                    return new Response("Sessão inválida - faça o login novamente", 401);
                 }
                 #endregion
 
@@ -55,7 +55,7 @@ namespace AccessControlSystem.Application.Context.AccountContext.UseCases.Update
                 #endregion
 
                 #region 05 - Retorna resposta
-                return new Response("Usuario atualizado com sucesso", 200, new ResponseData(@operator.Id, @operator.Email));
+                return new Response("Usuário atualizado com sucesso", 200, new ResponseData(@operator.Id, @operator.Email));
                 #endregion
 
             }

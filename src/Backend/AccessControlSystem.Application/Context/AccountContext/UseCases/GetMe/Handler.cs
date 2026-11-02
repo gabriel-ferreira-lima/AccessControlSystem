@@ -21,7 +21,7 @@ namespace AccessControlSystem.Application.Context.AccountContext.UseCases.GetMe 
             var @operator = await _repository.GetOperatorByIdAsync(request.Id, cancellationToken);
 
             if (@operator == null) {
-                return new Response("Sessão invalida - faça o login novamente", 401);
+                return new Response("Sessão inválida - faça o login novamente", 401);
             }
             #endregion
 

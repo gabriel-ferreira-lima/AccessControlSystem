@@ -44,6 +44,7 @@ public class UpdateMeHandlerTests
         var response = await _handler.HandleAsync(new Request(Guid.NewGuid(), Email: "novo@test.com"));
 
         Assert.Equal(401, response.Status);
+        Assert.Equal("Sessão inválida - faça o login novamente", response.Message);
     }
 
     [Fact]

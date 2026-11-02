@@ -33,6 +33,7 @@ public class GetMeHandlerTests
         var response = await _handler.HandleAsync(new Request(Guid.NewGuid()));
 
         Assert.Equal(401, response.Status);
+        Assert.Equal("Sessão inválida - faça o login novamente", response.Message);
     }
 
     [Fact]
