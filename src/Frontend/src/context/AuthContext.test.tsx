@@ -11,11 +11,15 @@ import { AuthProvider, useAuth } from "./AuthContext";
 
 // Componente sonda: expõe o estado do contexto em texto e os comandos em botões.
 function Probe() {
-  const { session, sessionExpired, signIn, signOut } = useAuth();
+  const { session, sessionExpired, passwordChanged, signIn, signOut, signOutAfterPasswordChange } = useAuth();
   return (
     <div>
       <p>sessão: {session ? session.email : "nenhuma"}</p>
       <p>expirada: {String(sessionExpired)}</p>
+      <p>senha alterada: {String(passwordChanged)}</p>
+      <button type="button" onClick={signOutAfterPasswordChange}>
+        trocar senha
+      </button>
       <button type="button" onClick={() => signIn(buildSession({ email: "novo@example.test" }))}>
         entrar
       </button>
@@ -112,6 +116,48 @@ describe("AuthProvider", () => {
 
     expect(screen.getByText("expirada: false")).toBeInTheDocument();
     expect(screen.getByText("sessão: novo@example.test")).toBeInTheDocument();
+  });
+
+  it("signOutAfterPasswordChange apaga a sessão e marca o aviso de senha alterada", async () => {
+    storeSession(buildSession({ email: "guardada@example.test" }));
+    const user = renderProbe();
+
+    await user.click(screen.getByRole("button", { name: "trocar senha" }));
+
+    expect(screen.getByText("sessão: nenhuma")).toBeInTheDocument();
+    expect(screen.getByText("senha alterada: true")).toBeInTheDocument();
+    expect(window.sessionStorage.getItem("acs.session")).toBeNull();
+  });
+
+  it("signOutAfterPasswordChange não marca a sessão como expirada", async () => {
+    storeSession(buildSession());
+    const user = renderProbe();
+
+    await user.click(screen.getByRole("button", { name: "trocar senha" }));
+
+    expect(screen.getByText("expirada: false")).toBeInTheDocument();
+  });
+
+  it("signIn depois da troca de senha zera o aviso", async () => {
+    storeSession(buildSession());
+    const user = renderProbe();
+    await user.click(screen.getByRole("button", { name: "trocar senha" }));
+    expect(screen.getByText("senha alterada: true")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "entrar" }));
+
+    expect(screen.getByText("senha alterada: false")).toBeInTheDocument();
+    expect(screen.getByText("sessão: novo@example.test")).toBeInTheDocument();
+  });
+
+  it("signOut manual não marca o aviso de senha alterada", async () => {
+    storeSession(buildSession());
+    const user = renderProbe();
+
+    await user.click(screen.getByRole("button", { name: "sair" }));
+
+    expect(screen.getByText("senha alterada: false")).toBeInTheDocument();
+    expect(screen.getByText("sessão: nenhuma")).toBeInTheDocument();
   });
 
   it("deixa de reagir ao 401 depois de desmontado", async () => {

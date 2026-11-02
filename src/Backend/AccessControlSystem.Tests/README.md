@@ -21,7 +21,26 @@ Infrastructure/
 Migrator/              executor, catálogo, orquestrador, verbos (migrate e seed-dev), códigos de saída
 Api/                   TokenService, validação do JWT e do tenant, login padrão, autorização,
                        contrato dos 8 endpoints, opções (WebApplicationFactory em Api/Support/)
+Support/               FakeTimeProvider (relógio falso para os testes do limite de login)
 ```
+
+## Mapa de cobertura de autorização (spec de segurança da autenticação e da sessão)
+
+| O que se prova | Onde |
+|---|---|
+| Rota sem regra de acesso responde `401`; política de fallback; rota inexistente é `404` | `Api/DefaultAuthorizationTests` (usa a rota de prova `OpenProbeController`) |
+| Swagger só em Development, `404` fora dele | `Api/SwaggerTests` |
+| **Todo endpoint** do `EndpointCatalog`: `401` sem token, `403` por perfil, `401` de outro tenant, `401` com token antigo depois de troca de senha, de perfil e de desativação | `Api/EndpointAuthorizationTests` (teorias geradas do catálogo) |
+| A suíte **falha** se uma rota real não está no catálogo (ou o catálogo cita rota inexistente) | `Api/EndpointCoverageTests` + `Api/Support/EndpointCatalog` |
+| Token: emissor, destinatário, validade (30 s de tolerância), HS256, `security_version`, chave de 32 bytes | `Api/JwtValidationTests`, `Api/OptionsValidationTests`, `Api/TokenServiceTests` |
+| Sessão: troca de senha ou de perfil, desativação e reativação derrubam o token; e-mail, mesmo perfil e senha em branco não | `Api/SessionInvalidationTests`, `Domain/Entities/OperatorTests`, `Infrastructure/Services/SessionValidatorTests` |
+| Login em tempo uniforme (a verificação de hash roda nos três casos de falha; hash fictício com a estrutura de um real) | `Application/.../AuthenticateHandlerTests`, `Infrastructure/AccountContext/Authenticate/PasswordVerifierTests`, `Api/LoginUniformityApiTests` |
+| Limite por origem e `X-Forwarded-For` só de proxy conhecido | `Api/LoginRateLimitApiTests`, `Api/ForwardedHeadersTests` |
+| Limite por conta: escada 1-2-4-8-15 min, descarte em 15 min, saturação com falha fechada, **admissão atômica** (50 chamadas concorrentes admitem exatamente 5) e **rajada na Api** (50 logins simultâneos, 5 verificações de hash) | `Infrastructure/AccountContext/Authenticate/InMemoryLoginThrottleTests`, `Api/LoginThrottleApiTests` |
+| Portas do compose só em `127.0.0.1`, sub-rede e IP do nginx fixos | `Architecture/ComposePortsTests` |
+
+Para um endpoint novo: acrescente-o ao `EndpointCatalog` (com o acesso certo); as teorias de autorização passam a
+cobri-lo e o `EndpointCoverageTests` deixa de falhar.
 
 ## Rodando
 

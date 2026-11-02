@@ -7,7 +7,7 @@ import {
   buildSession,
   operatorSession,
 } from "./test/fixtures";
-import { getMeHandler, listOperatorsHandler, loginHandler } from "./test/handlers";
+import { getMeHandler, listOperatorsHandler, loginHandler, updateMeHandler } from "./test/handlers";
 import { renderApp } from "./test/render";
 import { server } from "./test/server";
 
@@ -57,6 +57,38 @@ describe("App: jornadas de sessão", () => {
     expect(screen.queryByText(EXPIRED_NOTICE)).not.toBeInTheDocument();
     expect(window.sessionStorage.getItem("acs.session")).toBeNull();
     expect(window.location.pathname).toBe("/login");
+  });
+});
+
+describe("App: troca da própria senha", () => {
+  it("fluxo completo: troca da própria senha leva ao login com o aviso e a senha nova entra", async () => {
+    server.use(
+      getMeHandler({ kind: "success", data: { id: operatorSession.id, email: operatorSession.email, role: "Operator" } }),
+      updateMeHandler({
+        kind: "success",
+        message: "Dados atualizados com sucesso",
+        data: { id: operatorSession.id, email: operatorSession.email },
+      }),
+      loginHandler({ kind: "success", data: buildSession({ role: "Operator", email: operatorSession.email }) }),
+    );
+    const { user } = renderApp({ path: "/minha-conta", session: operatorSession });
+
+    // Troca a própria senha: a sessão acaba e o console volta ao login com o aviso.
+    await user.type(await screen.findByLabelText("Nova senha"), "Nova-senha-123!");
+    await user.click(screen.getByRole("button", { name: "Salvar alterações" }));
+    expect(await screen.findByText("Senha alterada. Faça login novamente.")).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/login");
+    expect(window.sessionStorage.getItem("acs.session")).toBeNull();
+
+    // A senha nova entra: o aviso some e o operador volta à rota de onde saiu (a de origem, como em todo login).
+    await user.type(screen.getByLabelText("E-mail"), operatorSession.email);
+    await user.type(screen.getByLabelText("Senha"), "Nova-senha-123!");
+    await user.click(screen.getByRole("button", { name: "Entrar" }));
+
+    expect(await screen.findByRole("heading", { name: "Minha conta" })).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/minha-conta");
+    expect(screen.queryByText("Senha alterada. Faça login novamente.")).not.toBeInTheDocument();
+    expect(window.sessionStorage.getItem("acs.session")).not.toBeNull();
   });
 });
 

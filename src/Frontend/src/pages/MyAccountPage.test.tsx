@@ -5,7 +5,7 @@ import { API_BASE_URL } from "../lib/api-client";
 import { toResponse } from "../test/envelope";
 import { buildNotification, operatorSession } from "../test/fixtures";
 import { getMeHandler, updateMeHandler } from "../test/handlers";
-import { renderWithProviders } from "../test/render";
+import { renderApp, renderWithProviders } from "../test/render";
 import { apiUrl, server } from "../test/server";
 import { MyAccountPage } from "./MyAccountPage";
 
@@ -142,7 +142,9 @@ describe("MyAccountPage: carga e envio", () => {
     expect(onUpdate.mock.calls[0][0].body).toEqual({});
   });
 
-  it("mostra a mensagem da api, limpa a senha, recarrega os dados e atualiza o e-mail da sessão", async () => {
+  // TE-05: este teste enviava e-mail E senha e esperava continuar logado. Agora que enviar uma senha encerra a sessão
+  // (FR-009), ele cobre o caso só do e-mail, com TODAS as asserções de antes; o caso com senha tem testes próprios abaixo.
+  it("mostra a mensagem da api, recarrega os dados e atualiza o e-mail da sessão quando só o e-mail mudou", async () => {
     let currentEmail = SERVER_EMAIL;
     let loads = 0;
     server.use(
@@ -161,7 +163,6 @@ describe("MyAccountPage: carga e envio", () => {
     await waitForLoaded();
     await user.clear(screen.getByLabelText("E-mail"));
     await user.type(screen.getByLabelText("E-mail"), "novo@example.test");
-    await user.type(screen.getByLabelText("Nova senha"), "nova-senha-123");
 
     await user.click(screen.getByRole("button", { name: "Salvar alterações" }));
 
@@ -300,5 +301,110 @@ describe("MyAccountPage: erros e limpar", () => {
     await user.click(screen.getByRole("button", { name: "Limpar" }));
 
     expect(screen.queryByText("Dados atualizados")).not.toBeInTheDocument();
+  });
+});
+
+// FR-009: depois de trocar a PRÓPRIA senha, o token deixa de valer na hora. O console encerra a sessão e leva ao login com
+// o aviso, sem a Api devolver token novo. A decisão é "a senha foi ENVIADA e a Api respondeu sucesso com dados".
+describe("MyAccountPage: troca da própria senha encerra a sessão", () => {
+  const PASSWORD_CHANGED_NOTICE = "Senha alterada. Faça login novamente.";
+
+  function renderAccountInApp() {
+    return renderApp({ path: "/minha-conta", session: operatorSession });
+  }
+
+  async function waitForAppLoaded() {
+    await waitFor(() => expect(screen.getByLabelText("E-mail")).toHaveValue(SERVER_EMAIL));
+  }
+
+  it("encerra a sessão e leva ao login com o aviso depois de trocar a senha", async () => {
+    server.use(
+      getMeHandler({ kind: "success", data: me() }),
+      updateMeHandler({ kind: "success", message: "Dados atualizados com sucesso", data: updatedMe() }),
+    );
+    const { user } = renderAccountInApp();
+    await waitForAppLoaded();
+    await user.type(screen.getByLabelText("Nova senha"), "nova-senha-123");
+
+    await user.click(screen.getByRole("button", { name: "Salvar alterações" }));
+
+    expect(await screen.findByRole("heading", { name: "Sistema de Controle de Acesso" })).toBeInTheDocument();
+    expect(screen.getByText(PASSWORD_CHANGED_NOTICE)).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/login");
+    expect(window.sessionStorage.getItem("acs.session")).toBeNull();
+  });
+
+  it("trocar só o e-mail não encerra a sessão", async () => {
+    server.use(
+      getMeHandler({ kind: "success", data: me() }),
+      updateMeHandler({ kind: "success", message: "Dados atualizados com sucesso", data: updatedMe("novo@example.test") }),
+    );
+    const { user } = renderAccountInApp();
+    await waitForAppLoaded();
+    await user.clear(screen.getByLabelText("E-mail"));
+    await user.type(screen.getByLabelText("E-mail"), "novo@example.test");
+
+    await user.click(screen.getByRole("button", { name: "Salvar alterações" }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent("Dados atualizados com sucesso");
+    expect(screen.getByRole("heading", { name: "Minha conta" })).toBeInTheDocument();
+    expect(screen.queryByText(PASSWORD_CHANGED_NOTICE)).not.toBeInTheDocument();
+    expect(window.sessionStorage.getItem("acs.session")).not.toBeNull();
+  });
+
+  it("trocar e-mail e senha encerra a sessão", async () => {
+    server.use(
+      getMeHandler({ kind: "success", data: me() }),
+      updateMeHandler({ kind: "success", message: "Dados atualizados com sucesso", data: updatedMe("novo@example.test") }),
+    );
+    const { user } = renderAccountInApp();
+    await waitForAppLoaded();
+    await user.clear(screen.getByLabelText("E-mail"));
+    await user.type(screen.getByLabelText("E-mail"), "novo@example.test");
+    await user.type(screen.getByLabelText("Nova senha"), "nova-senha-123");
+
+    await user.click(screen.getByRole("button", { name: "Salvar alterações" }));
+
+    expect(await screen.findByText(PASSWORD_CHANGED_NOTICE)).toBeInTheDocument();
+    expect(window.sessionStorage.getItem("acs.session")).toBeNull();
+  });
+
+  it.each([
+    { status: 400, message: "Requisição inválida" },
+    { status: 409, message: "E-mail já cadastrado" },
+  ])("erro $status do update-me com senha não encerra a sessão", async ({ status, message }) => {
+    server.use(
+      getMeHandler({ kind: "success", data: me() }),
+      updateMeHandler({ kind: "failure", status, message }),
+    );
+    const { user } = renderAccountInApp();
+    await waitForAppLoaded();
+    await user.type(screen.getByLabelText("Nova senha"), "nova-senha-123");
+
+    await user.click(screen.getByRole("button", { name: "Salvar alterações" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(message);
+    expect(screen.queryByText(PASSWORD_CHANGED_NOTICE)).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Minha conta" })).toBeInTheDocument();
+    expect(window.sessionStorage.getItem("acs.session")).not.toBeNull();
+  });
+
+  it("sucesso sem dados com senha digitada não encerra a sessão", async () => {
+    const onUpdate = vi.fn();
+    server.use(
+      getMeHandler({ kind: "success", data: me() }),
+      updateMeHandler({ kind: "success", data: null }, onUpdate),
+    );
+    const { user } = renderAccountInApp();
+    await waitForAppLoaded();
+    await user.type(screen.getByLabelText("Nova senha"), "nova-senha-123");
+
+    await user.click(screen.getByRole("button", { name: "Salvar alterações" }));
+
+    await waitFor(() => expect(onUpdate).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Salvar alterações" })).toBeEnabled());
+    expect(screen.queryByText(PASSWORD_CHANGED_NOTICE)).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Minha conta" })).toBeInTheDocument();
+    expect(window.sessionStorage.getItem("acs.session")).not.toBeNull();
   });
 });

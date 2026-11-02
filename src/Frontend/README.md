@@ -120,11 +120,11 @@ Se preferir usar HTTP (`http://localhost:5290`), defina
 
 | Método | Rota                                       | Uso                                            |
 | ------ | ------------------------------------------ | ----------------------------------------------- |
-| POST   | `/v1/account/login`                        | Autenticação; retorna o token                  |
+| POST   | `/v1/account/login`                        | Autenticação; retorna o token (429 por origem ou por conta, com `Retry-After`) |
 | POST   | `/v1/account/create`                       | Cadastro de operador (envia o token)           |
 | PUT    | `/v1/account/update/{id}`                  | Altera e-mail, senha ou perfil de um operador  |
 | GET    | `/v1/account/get-list?Page=&Size=&IsActive=` | Lista paginada de operadores                 |
-| PUT    | `/v1/account/update-me`                    | Altera e-mail/senha da própria conta           |
+| PUT    | `/v1/account/update-me`                    | Altera e-mail/senha da própria conta (enviar senha encerra a sessão e leva ao login com o aviso) |
 | GET    | `/v1/account/get-me`                       | Dados atuais da própria conta (somente leitura) |
 | PUT    | `/v1/account/deactivate/{id}`              | Desativa um operador (exclusão lógica)         |
 | PUT    | `/v1/account/activate/{id}`                | Reativa um operador                            |
@@ -172,13 +172,25 @@ exibe erro de API neste projeto usa o helper `toFormError`
 (`src/lib/form-error.ts`), que sempre carrega os dois. Se adicionar uma tela
 nova, use esse helper em vez de ler só `error.message`.
 
-O backend também rejeita **qualquer** chamada autenticada com 401 assim que a
-conta é desativada (verificação a cada requisição, não só no login). O
+O backend também rejeita **qualquer** chamada autenticada com 401 assim que o
+token deixa de valer (verificação a cada requisição, não só no login): conta
+desativada (e reativar não o revalida), **troca de senha**, **troca de perfil**,
+token de outro tenant, vencido ou de outro emissor. O
 `apiRequest` detecta esse 401 em chamadas com `authenticated: true` e aciona um
 handler registrado pelo `AuthProvider`, que encerra a sessão local — a troca
 para `/login` acontece pelo caminho normal (`RequireSession` redireciona assim
 que a sessão fica nula), com um aviso "Sua sessão foi encerrada" na tela de
 login.
+
+Há um caso que o console resolve **sem esperar o 401**: quando o operador troca a
+**própria senha** (`update-me` com `password`), o token que ele usa deixa de valer
+na hora e a Api não devolve token novo. Depois do sucesso, `MyAccountPage` chama
+`signOutAfterPasswordChange()` (`AuthContext`), a sessão acaba e a tela de login
+mostra "Senha alterada. Faça login novamente." (aviso próprio, diferente do de
+"sessão encerrada"). Trocar só o e-mail não encerra a sessão. O console decide
+pelo que **enviou** (a senha), não por adivinhar a resposta da Api. O `429` do
+login (limite por origem ou por conta) aparece como erro do formulário, com a
+`message` e as `notifications` que a Api devolveu.
 
 Envelope de resposta esperado:
 

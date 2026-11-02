@@ -15,12 +15,12 @@ namespace AccessControlSystem.Api.Controllers {
         /// <param name="request">
         /// <p>Para autenticar é necessário informar o e-mail e a senha do operador.</p>
         /// <hr/>
-        /// <p><b>email:</b> E-mail cadastrado do operador <b>*obrigatório</b></p>
+        /// <p><b>email:</b> E-mail cadastrado do operador, sem diferença de maiúsculas e minúsculas e sem espaços nas pontas <b>*obrigatório</b></p>
         /// <p><b>password:</b> Senha de acesso do operador <b>*obrigatório</b></p>
         /// </param>
         /// <response code="200">Login efetuado, token devolvido.</response>
         /// <response code="400">E-mail em formato inválido.</response>
-        /// <response code="401">Credenciais inválidas ou conta desativada.</response>
+        /// <response code="401">Credenciais inválidas: e-mail inexistente, conta desativada ou senha errada (a mesma resposta nos três casos).</response>
         /// <response code="429">Muitas tentativas de login para esta origem (IP) ou para esta conta (tenant + e-mail); o cabeçalho Retry-After informa a espera em segundos.</response>
         [AllowAnonymous]
         [UseDefaultLoginTenant]
@@ -49,6 +49,8 @@ namespace AccessControlSystem.Api.Controllers {
         /// </param>
         /// <response code="201">Conta criada.</response>
         /// <response code="400">Requisição inválida (e-mail/senha fora do padrão, perfil inválido).</response>
+        /// <response code="401">Não autenticado: sem token, token inválido ou vencido, de outro tenant, ou emitido antes de uma troca de senha, de perfil ou de uma desativação do operador.</response>
+        /// <response code="403">Sem permissão: só um administrador pode chamar.</response>
         /// <response code="409">Já existe conta cadastrada com esse e-mail neste tenant.</response>
         [Authorize(Roles = "Admin")]
         [HttpPost("create")]
@@ -65,7 +67,7 @@ namespace AccessControlSystem.Api.Controllers {
 
         /// <summary>Devolve os dados do próprio operador autenticado.</summary>
         /// <response code="200">Dados do operador.</response>
-        /// <response code="401">Sessão inválida (conta desativada ou removida) — faça login novamente.</response>
+        /// <response code="401">Não autenticado: sem token, token inválido ou vencido, de outro tenant, ou emitido antes de uma troca de senha, de perfil ou de uma desativação do operador — faça login novamente.</response>
         [Authorize]
         [HttpGet("get-me")]
         public async Task<IActionResult> GetMe(
@@ -90,6 +92,8 @@ namespace AccessControlSystem.Api.Controllers {
         /// </param>
         /// <response code="200">Página de operadores.</response>
         /// <response code="400">Page/Size/IsActive fora do intervalo aceito.</response>
+        /// <response code="401">Não autenticado: sem token, token inválido ou vencido, de outro tenant, ou emitido antes de uma troca de senha, de perfil ou de uma desativação do operador.</response>
+        /// <response code="403">Sem permissão: só um administrador pode chamar.</response>
         [Authorize(Roles = "Admin")]
         [HttpGet("get-list")]
         public async Task<IActionResult> GetAsync(
@@ -104,7 +108,11 @@ namespace AccessControlSystem.Api.Controllers {
             return StatusCode(result.Status, result);
         }
 
-        /// <summary>Atualiza o próprio operador autenticado (e-mail e/ou senha).</summary>
+        /// <summary>
+        /// Atualiza o próprio operador autenticado (e-mail e/ou senha). Enviar uma senha (mesmo igual à atual) derruba o token
+        /// atual: depois do sucesso, o console encerra a sessão e leva ao login, e a Api não devolve token novo. Trocar só o
+        /// e-mail não derruba o token.
+        /// </summary>
         /// <param name="request">
         /// <p>Informe ao menos um campo. O Id é sempre o do próprio token, o que vier no corpo é ignorado.</p>
         /// <hr/>
@@ -113,7 +121,7 @@ namespace AccessControlSystem.Api.Controllers {
         /// </param>
         /// <response code="200">Conta atualizada.</response>
         /// <response code="400">Nenhum campo informado, ou e-mail/senha fora do padrão.</response>
-        /// <response code="401">Sessão inválida (conta desativada ou removida) — faça login novamente.</response>
+        /// <response code="401">Não autenticado: sem token, token inválido ou vencido, de outro tenant, ou emitido antes de uma troca de senha, de perfil ou de uma desativação do operador — faça login novamente.</response>
         /// <response code="409">Já existe conta cadastrada com esse e-mail neste tenant.</response>
         [Authorize]
         [HttpPut("update-me")]
@@ -130,7 +138,11 @@ namespace AccessControlSystem.Api.Controllers {
             return StatusCode(result.Status, result);
         }
 
-        /// <summary>Atualiza um operador qualquer (e-mail, senha e/ou perfil de acesso). Só admin.</summary>
+        /// <summary>
+        /// Atualiza um operador qualquer (e-mail, senha e/ou perfil de acesso). Só admin. Enviar uma senha (mesmo igual à atual)
+        /// ou um perfil DIFERENTE do atual derruba os tokens desse operador; trocar só o e-mail, reenviar o mesmo perfil ou deixar
+        /// a senha em branco não derruba.
+        /// </summary>
         /// <param name="id">Id do operador a atualizar (vem da rota; o Id no corpo é ignorado).</param>
         /// <param name="request">
         /// <p>Informe ao menos um campo.</p>
@@ -142,6 +154,8 @@ namespace AccessControlSystem.Api.Controllers {
         /// </param>
         /// <response code="200">Conta atualizada.</response>
         /// <response code="400">Nenhum campo informado, e-mail/senha fora do padrão, ou tentativa de rebaixar um admin para operador.</response>
+        /// <response code="401">Não autenticado: sem token, token inválido ou vencido, de outro tenant, ou emitido antes de uma troca de senha, de perfil ou de uma desativação do operador.</response>
+        /// <response code="403">Sem permissão: só um administrador pode chamar.</response>
         /// <response code="404">Operador não encontrado.</response>
         /// <response code="409">Já existe conta cadastrada com esse e-mail neste tenant.</response>
         [Authorize(Roles = "Admin")]
@@ -159,10 +173,15 @@ namespace AccessControlSystem.Api.Controllers {
             return StatusCode(result.Status, result);
         }
 
-        /// <summary>Reativa um operador desativado. Só admin.</summary>
+        /// <summary>
+        /// Reativa um operador desativado. Só admin. Reativar NÃO revalida os tokens emitidos antes da desativação: o operador
+        /// precisa fazer login de novo.
+        /// </summary>
         /// <param name="id">Id do operador a reativar.</param>
         /// <response code="200">Conta reativada.</response>
         /// <response code="400">Id não informado.</response>
+        /// <response code="401">Não autenticado: sem token, token inválido ou vencido, de outro tenant, ou emitido antes de uma troca de senha, de perfil ou de uma desativação do operador.</response>
+        /// <response code="403">Sem permissão: só um administrador pode chamar.</response>
         /// <response code="404">Operador não encontrado.</response>
         [Authorize(Roles = "Admin")]
         [HttpPut("activate/{id:guid}")]
@@ -180,11 +199,14 @@ namespace AccessControlSystem.Api.Controllers {
         }
 
         /// <summary>
-        /// Inativa um operador. Só admin.
+        /// Inativa um operador. Só admin. Derruba os tokens desse operador na requisição seguinte (e reativar depois não os
+        /// revalida).
         /// </summary>
         /// <param name="id">Id do operador a desativar.</param>
         /// <response code="200">Conta desativada.</response>
         /// <response code="400">Id não informado, tentativa de autodesativação, ou é o último admin ativo.</response>
+        /// <response code="401">Não autenticado: sem token, token inválido ou vencido, de outro tenant, ou emitido antes de uma troca de senha, de perfil ou de uma desativação do operador.</response>
+        /// <response code="403">Sem permissão: só um administrador pode chamar.</response>
         /// <response code="404">Operador não encontrado.</response>
         [Authorize(Roles = "Admin")]
         [HttpPut("deactivate/{id:guid}")]

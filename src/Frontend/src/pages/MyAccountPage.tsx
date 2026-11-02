@@ -16,7 +16,7 @@ function fieldError(notifications: ApiNotification[], field: string): string | u
 }
 
 export function MyAccountPage() {
-  const { session, signIn } = useAuth();
+  const { session, signIn, signOutAfterPasswordChange } = useAuth();
 
   // Dados atuais, vindos direto do servidor (GET /account/get-me).
   // O perfil e somente leitura: o operador nao pode alterar o proprio perfil.
@@ -84,6 +84,13 @@ export function MyAccountPage() {
     try {
       const result = await updateMe(payload, controller.signal);
       if (result.data) {
+        // Uma senha nova foi ENVIADA e aceita: o token antigo ja nao vale e a Api nao devolve token novo. Encerra a
+        // sessao e leva ao login com o aviso. A decisao e "a senha foi enviada", nao adivinhar a resposta.
+        if (payload.password !== undefined) {
+          signOutAfterPasswordChange();
+          return;
+        }
+
         if (session) {
           signIn({ ...session, email: result.data.email });
         }
