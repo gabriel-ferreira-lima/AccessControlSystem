@@ -1,0 +1,70 @@
+name: Package Audit
+
+# Auditoria de pacotes vulneráveis EM AGENDA (toda segunda-feira) e sob demanda, mesmo sem nenhuma mudança no código: um
+# aviso novo sobre um pacote já instalado não acenderia verificação nenhuma se ninguém mexesse no código.
+#
+# Os critérios são os da spec 04b, POR CONSTRUÇÃO (nada é duplicado aqui):
+#   - .NET: o `dotnet restore` roda o NuGet Audit configurado em src/Backend/Directory.Build.props (qualquer severidade,
+#     pacotes diretos e transitivos; vulnerabilidade conhecida é erro). O CI=true do Actions torna erro também a falha de
+#     consulta aos avisos (NU1900): sem rede a verificação reprova, nunca "passa em silêncio".
+#   - npm: `npm audit` SEM --audit-level (qualquer severidade, dependências de desenvolvimento incluídas); sem acesso ao
+#     registro o comando também falha.
+# Não faz build, teste nem publicação: uma falha de teste não pode virar alarme de vulnerabilidade.
+#
+# Quem recebe o e-mail de falha é quem criou o workflow (ou quem alterou a linha `cron`): o dono confere em
+# Settings > Notifications > Actions. ATENÇÃO: num repositório público o GitHub DESATIVA agendamentos depois de 60 dias sem
+# atividade no repositório. O guia (docs/protecoes-do-repositorio.md) explica como notar isso e reativar.
+
+on:
+  schedule:
+    - cron: '23 9 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backend-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    defaults:
+      run:
+        working-directory: src/Backend
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up .NET Core
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore and audit packages
+        run: dotnet restore Backend.slnx
+
+  frontend-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    defaults:
+      run:
+        working-directory: src/Frontend
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: src/Frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Audit dependencies
+        run: npm audit

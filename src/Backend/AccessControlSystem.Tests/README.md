@@ -17,6 +17,14 @@ Architecture/          NoStaticTenantStateTests   (nenhum estado estático com d
                        PackageAuditConfigTests    (NuGet Audit, exceção do SSH.NET por aviso, Dockerfiles e workflows de auditoria)
                        FictitiousPasswordsNotInRepoTests (SC-010: nenhuma senha fictícia literal em código de produção,
                        appsettings*.json, docker-compose*.yml e .github/; com não vacuidade e controle negativo)
+                       BashLocatorTests           (como os testes de script acham o bash: ACS_BASH ou Git Bash no Windows, nunca
+                                                   o do PATH/WSL; bash do PATH no Linux; função pura, mais a fumaça do ScriptShell)
+                       CiScriptsTests             (roda de verdade scripts/ci/detect-areas.sh, scripts/ci/evaluate-gate.sh e
+                                                   scripts/github/check-rules.sh, em tabela)
+                       CiWorkflowsConfigTests     (gatilhos sem paths, permissions, timeout, sem segredo nem ação de terceiros,
+                                                   nomes do ci-gate e do k6 curto)
+                       RepositoryProtectionsConfigTests (corpo do ruleset main-ruleset.json, inclusive o integration_id do Actions;
+                                                   a Fase D acrescenta os scripts de aplicação e o guia)
 Infrastructure/
   Fixtures/            PostgresContainerFixture, PostgresRoleBootstrap, DatabaseProbe,
                        AppRoleProbe (sonda de privilégios de um papel), CanaryRole (papel descartável)
@@ -38,7 +46,9 @@ Api/                   TokenService, validação do JWT e do tenant, login padr�
                        InputLimitsApiTests (400 "Requisição inválida" para campo acima do tamanho máximo),
                        HealthEndpointsTests (/health/live e /health/ready: respostas, cache de 5 s, tempo limite,
                        token ignorado) e OnlyHealthEndpointsAreAnonymousTests (únicos anônimos e sem controller)
-Support/               FakeTimeProvider (relógio falso para os testes do limite de login)
+Support/               FakeTimeProvider (relógio falso para os testes do limite de login);
+                       BashLocator e ScriptShell (rodam scripts de shell com a raiz do repositório como diretório de trabalho;
+                       as pastas temporárias ficam em obj/script-tests/, ignorado pelo git)
 ```
 
 **Papéis-canário** (`Infrastructure/Fixtures/CanaryRole`): papéis de banco pertencem ao cluster inteiro, não ao banco

@@ -1,26 +1,19 @@
 name: Backend CI
 
+# Chamado pelo ci-gate.yml (workflow_call), que decide quando o backend é exigido. Não tem filtro de caminhos nem roda por
+# conta própria em push ou pull request: o gate sempre roda e é quem exige (ou dispensa) esta verificação.
+# O workflow_dispatch só serve para depurar este arquivo isolado.
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'src/Backend/**'
-      - 'docker/postgres/sql/**'
-      - 'docker/postgres/init/**'
-      - '.github/workflows/backend-ci.yml'
-  pull_request:
-    branches:
-      - main
-    paths:
-      - 'src/Backend/**'
-      - 'docker/postgres/sql/**'
-      - 'docker/postgres/init/**'
-      - '.github/workflows/backend-ci.yml'
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     defaults:
       run:
