@@ -582,24 +582,11 @@ muito mais.
 Trechos do código atual que violam esta constituição. Eles NÃO DEVEM servir de referência para
 código novo; cada um é corrigido por spec própria.
 
-- `Application/Configuration.cs` + `BuilderExtensions.AddConfiguration/AddDatabase`: connection
-  string em campo estático (viola o Princípio I). Será substituído por um resolvedor de tenant
-  na primeira spec.
-- `TokenService`: o token ainda não carrega a claim `tenant` (viola o Princípio I). Entra na mesma
-  spec do resolvedor de tenant.
 - `Api/Migrations/20260908171522_SeedAdmin`: cria um admin com e-mail e senha fixos (viola o
   Princípio I). Continua só para desenvolvimento, até o provisionamento existir.
-- Repositórios do `AccountContext`: `GetUserById` (devolve `Operator`), `CheckIfEmailIsNotUsed`
-  (devolve `true` quando o e-mail está em uso), `GetOperatorList` e `GetUserByEmailAsync` (viola
-  o Princípio III). Serão renomeados por spec de refactor.
-- `Domain/Contexts/UserContext/Entities/User.Active()`: DEVE ser `Activate()` (viola o
-  Princípio IV).
 - `Application/Context/UserContext/Create/*`: handler vazio e `ResponseData` copiado do Operator.
   A spec do cadastro de usuário reescreve esse use case, reaproveitando só o domínio
   (`User`, `Name`, `Cpf`, `Rg`, `Telephone`, `PasswordAccess`).
-- Textos de UI sem acento no frontend (ex.: `src/Frontend/src/lib/api-client.ts`).
-- `Secrets:PasswordSaltKey`: lida na configuração e exigida no `docker-compose.yml`, mas não é
-  usada pelo hash de senha. Será removida da configuração, do `.env.example` e do compose.
 - `BuilderExtensions.AddForwardedHeaders`: limpa `KnownProxies`/`KnownIPNetworks`, então a Api
   aceita `X-Forwarded-For` de qualquer origem. Com a porta da Api exposta no
   `docker-compose.yml`, o rate limit do login é contornável (viola o Princípio IX).
@@ -609,11 +596,7 @@ código novo; cada um é corrigido por spec própria.
   permite descobrir e-mails pelo tempo de resposta (viola o Princípio IX).
 - `AddRateLimiting`: limite só por IP, sem limite por conta nem por tenant, e guardado na memória
   da instância (viola os Princípios IX e XIII).
-- `OperatorMap` e as tabelas atuais: sem coluna `tenant_id`, sem RLS, e o índice único de e-mail
-  é global em vez de por tenant (viola o Princípio I).
 - `Program.cs`: Swagger mapeado em qualquer ambiente (viola o Princípio IX).
-- `MigrationExtensions.ApplyMigrations`: migrations no startup, exigindo DDL do usuário da
-  aplicação (viola o Princípio IX).
 - `PasswordAccess.Value`: PIN em texto puro (viola o Princípio IX).
 - `src/Frontend/nginx.conf`: sem HSTS nem cabeçalhos de segurança (viola o Princípio IX).
 - `Domain/Contexts/AccountContext/Enums/ERole.cs` + `[Authorize(Roles = "Admin")]` no
@@ -638,5 +621,5 @@ código novo; cada um é corrigido por spec própria.
 - `Domain/Contexts/UserContext`: `User.DateStart`/`DateEnd`, `Cpf.Validity` e `Rg.Validity` usam
   `DateTime` sem garantir `Kind = Utc` (viola a seção Operação).
 
-**Version**: 1.2.1 | **Ratified**: 2026-10-31 |
+**Version**: 1.2.2 | **Ratified**: 2026-10-31 |
 **Last Amended**: 2026-11-01
