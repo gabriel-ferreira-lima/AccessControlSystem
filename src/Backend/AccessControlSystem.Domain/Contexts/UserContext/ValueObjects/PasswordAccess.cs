@@ -7,6 +7,9 @@ namespace AccessControlSystem.Domain.Contexts.UserContext.ValueObjects {
 
         public const string Pattern = @"^\d{4,6}$";
 
+        // Máximo de caracteres aceito na entrada (o PIN tem de 4 a 6 dígitos).
+        public const int MaxLength = 6;
+
         protected PasswordAccess() {
             
         }

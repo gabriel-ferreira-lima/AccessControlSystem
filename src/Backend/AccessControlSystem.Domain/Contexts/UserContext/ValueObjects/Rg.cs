@@ -7,6 +7,9 @@ namespace AccessControlSystem.Domain.Contexts.UserContext.ValueObjects {
 
         public const string RgPattern = @"^\d{1,2}\.?\d{3}\.?\d{3}[\-]?[\dXx]$";
 
+        // Máximo de caracteres aceito na entrada.
+        public const int MaxLength = 20;
+
         protected Rg() {
 
         }

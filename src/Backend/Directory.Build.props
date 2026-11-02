@@ -1,0 +1,30 @@
+<Project>
+
+  <!--
+    Auditoria de pacotes (Princípio IX, "Dependências"; contracts/dependency-audit.md). Vale para TODOS os projetos da
+    solução e roda em todo restore (dotnet restore, build, test e docker build): um pacote com vulnerabilidade conhecida,
+    direto ou transitivo, de qualquer severidade, quebra o build.
+
+    Exceção: só por aviso (URL do GHSA) e no menor escopo, com a justificativa em comentário ao lado. A única hoje é a do
+    SSH.NET, no AccessControlSystem.Tests.csproj. Não existe exceção geral por NoWarn.
+  -->
+  <PropertyGroup>
+    <NuGetAudit>true</NuGetAudit>
+    <!-- "all" inclui os pacotes transitivos (o padrão só olha os diretos). -->
+    <NuGetAuditMode>all</NuGetAuditMode>
+    <!-- "low" avisa de qualquer severidade. -->
+    <NuGetAuditLevel>low</NuGetAuditLevel>
+    <!-- NU1901 (baixa) a NU1904 (crítica): vulnerabilidade conhecida vira erro. -->
+    <WarningsAsErrors>$(WarningsAsErrors);NU1901;NU1902;NU1903;NU1904</WarningsAsErrors>
+  </PropertyGroup>
+
+  <!--
+    NU1900 = não foi possível consultar a base de avisos (sem rede). No CI isso também é erro, para a verificação nunca
+    "passar" por não ter olhado nada. Fora do CI não é erro, para quem está sem internet continuar compilando. O GitHub
+    Actions define CI=true; dentro do docker build a variável não existe (o NU1901 a NU1904 continuam valendo lá).
+  -->
+  <PropertyGroup Condition="'$(CI)' == 'true'">
+    <WarningsAsErrors>$(WarningsAsErrors);NU1900</WarningsAsErrors>
+  </PropertyGroup>
+
+</Project>

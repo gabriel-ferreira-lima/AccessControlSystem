@@ -36,6 +36,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Auditoria de pacotes: qualquer severidade, dependências de desenvolvimento incluídas. Sem acesso ao registro o
+      # comando também falha (a verificação nunca passa em silêncio).
+      - name: Audit dependencies
+        run: npm audit
+
       - name: Type check
         run: npm run typecheck
 
@@ -44,3 +49,6 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - name: Verify security headers
+        run: bash scripts/verify-security-headers.sh

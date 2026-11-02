@@ -4,6 +4,9 @@ using AccessControlSystem.Domain.SharedContext.ValueObjects;
 namespace AccessControlSystem.Domain.Contexts.UserContext.ValueObjects {
     public partial class Name : ValueObject {
 
+        // Máximo de caracteres aceito (entrada e construtor).
+        public const int MaxLength = 100;
+
         protected Name() {
             
         }
@@ -15,7 +18,7 @@ namespace AccessControlSystem.Domain.Contexts.UserContext.ValueObjects {
             if (fullName.Length < 3) {
                 throw new DomainException("Campo nome deve ter pelo menos 3 caracteres");
             }
-            if (fullName.Length > 100) {
+            if (fullName.Length > MaxLength) {
                 throw new DomainException("Campo nome deve ter no máximo 100 caracteres");
             }
 

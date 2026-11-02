@@ -342,4 +342,40 @@ public class AuthenticateHandlerTests
     }
 
     #endregion
+
+    #region Tamanho máximo da entrada (SC-003, FR-003)
+
+    // Senha de 1 MB: recusada na Specification, antes de limitador, banco, hash e token (sem critério de tempo).
+    [Fact]
+    public async Task Senha_de_1_MB_retorna_400_sem_chamar_hash_repositorio_nem_limitador()
+    {
+        var senhaGigante = new string('a', 1_048_576);
+
+        var response = await HandlerComVerificadorSubstituto().HandleAsync(new Request("op@test.com", senhaGigante));
+
+        Assert.Equal(400, response.Status);
+        Assert.Equal("Requisição inválida", response.Message);
+        Assert.Contains(response.Notifications!, n => n.Key == "Password");
+        _verifier.DidNotReceiveWithAnyArgs().Verify(default, default!);
+        await _repository.DidNotReceiveWithAnyArgs().GetOperatorByEmailAsync(default!, default);
+        await _loginThrottle.DidNotReceiveWithAnyArgs().TryAcquireAttemptAsync(default, default!, default);
+        _tokenService.DidNotReceive().Generate(Arg.Any<Operator>());
+    }
+
+    [Fact]
+    public async Task Email_com_mais_de_255_caracteres_retorna_400_sem_chamar_hash_repositorio_nem_limitador()
+    {
+        var emailGigante = new string('a', 247) + "@test.com";   // 256 caracteres, formato válido
+
+        var response = await HandlerComVerificadorSubstituto().HandleAsync(new Request(emailGigante, "Str0ng!Pass"));
+
+        Assert.Equal(400, response.Status);
+        Assert.Equal("Requisição inválida", response.Message);
+        Assert.Contains(response.Notifications!, n => n.Key == "Email");
+        _verifier.DidNotReceiveWithAnyArgs().Verify(default, default!);
+        await _repository.DidNotReceiveWithAnyArgs().GetOperatorByEmailAsync(default!, default);
+        await _loginThrottle.DidNotReceiveWithAnyArgs().TryAcquireAttemptAsync(default, default!, default);
+    }
+
+    #endregion
 }

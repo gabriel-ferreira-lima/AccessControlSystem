@@ -35,6 +35,11 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
+      # Auditoria de pacotes (NuGet Audit, Directory.Build.props): vulnerabilidade conhecida, direta ou transitiva, falha
+      # aqui. O CI=true do Actions também torna erro a falha de consulta aos avisos (NU1900).
+      - name: Restore and audit packages
+        run: dotnet restore Backend.slnx
+
       - name: Build with dotnet
         run: dotnet build Backend.slnx --configuration Release
 

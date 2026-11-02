@@ -6,6 +6,9 @@ namespace AccessControlSystem.Domain.Contexts.AccountContext.ValueObjects {
     public partial class Email : ValueObject {
         public const string Pattern = @"^\w+([-+.']\w+)*@\w+([-.]\w+)*\.\w+([-.]\w+)*$";
 
+        // Máximo de caracteres aceito na entrada; casa com o varchar(255) da coluna de e-mail (OperatorMap).
+        public const int MaxLength = 255;
+
         protected Email() {
             
         }

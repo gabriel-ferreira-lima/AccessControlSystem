@@ -7,6 +7,9 @@ namespace AccessControlSystem.Domain.Contexts.UserContext.ValueObjects {
 
         public const string TelephonePattern = @"^\(?\d{2}\)?[\s-]?[\s9]?\d{4}-?\d{4}$";
 
+        // Máximo de caracteres aceito na entrada.
+        public const int MaxLength = 20;
+
         protected Telephone() {
             
         }

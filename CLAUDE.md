@@ -26,6 +26,7 @@ Sistema de controle de acesso multi-tenant. As regras do projeto estão na const
 
 ```bash
 # Backend (em src/Backend)
+dotnet restore Backend.slnx                               # audita pacotes (NuGet Audit: vulnerabilidade = erro)
 dotnet build Backend.slnx
 dotnet test Backend.slnx                                  # inclui integração (Docker ligado)
 dotnet test Backend.slnx --filter "Category!=Integration" # só testes rápidos
@@ -34,6 +35,8 @@ dotnet test Backend.slnx --filter "Category!=Integration" # só testes rápidos
 npm run typecheck
 npm test                                                  # testes (Vitest, API simulada com MSW)
 npm run build
+npm audit                                                 # pacotes vulneráveis (qualquer severidade)
+bash scripts/verify-security-headers.sh                   # cabeçalhos do console (Docker + curl + openssl)
 
 # Tudo via Docker (na raiz): catálogo, bases, migrator e uma API por tenant de teste
 docker compose up --build

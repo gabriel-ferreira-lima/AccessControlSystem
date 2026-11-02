@@ -4,6 +4,9 @@ using AccessControlSystem.Domain.SharedContext.ValueObjects;
 namespace AccessControlSystem.Domain.Contexts.UserContext.ValueObjects {
     public class Cpf : ValueObject{
 
+        // Máximo de caracteres aceito na entrada (11 dígitos com a máscara 000.000.000-00).
+        public const int MaxLength = 14;
+
         protected Cpf() {
 
         }
