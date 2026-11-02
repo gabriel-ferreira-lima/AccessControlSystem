@@ -29,7 +29,9 @@ Infrastructure/
 Migrator/              executor, catálogo, orquestrador, verbos (migrate e seed-dev), códigos de saída
 Api/                   TokenService, validação do JWT e do tenant, login padrão, autorização,
                        contrato dos 8 endpoints, opções (WebApplicationFactory em Api/Support/),
-                       InputLimitsApiTests (400 "Requisição inválida" para campo acima do tamanho máximo)
+                       InputLimitsApiTests (400 "Requisição inválida" para campo acima do tamanho máximo),
+                       HealthEndpointsTests (/health/live e /health/ready: respostas, cache de 5 s, tempo limite,
+                       token ignorado) e OnlyHealthEndpointsAreAnonymousTests (únicos anônimos e sem controller)
 Support/               FakeTimeProvider (relógio falso para os testes do limite de login)
 ```
 
@@ -53,6 +55,9 @@ removido no `DisposeAsync` (`REASSIGN OWNED`, `DROP OWNED` em cada banco e `DROP
 | Limite por origem e `X-Forwarded-For` só de proxy conhecido | `Api/LoginRateLimitApiTests`, `Api/ForwardedHeadersTests` |
 | Limite por conta: escada 1-2-4-8-15 min, descarte em 15 min, saturação com falha fechada, **admissão atômica** (50 chamadas concorrentes admitem exatamente 5) e **rajada na Api** (50 logins simultâneos, 5 verificações de hash) | `Infrastructure/AccountContext/Authenticate/InMemoryLoginThrottleTests`, `Api/LoginThrottleApiTests` |
 | Portas do compose só em `127.0.0.1`, sub-rede e IP do nginx fixos | `Architecture/ComposePortsTests` |
+| Saúde da Api: `live` sem consulta; `pronta` com no máximo 1 consulta ao catálogo a cada 5 s por instância (sonda falsa que **conta chamadas**, sem medir tempo), 2 s de tempo limite real, queda e volta refletidas em até 5 s, resposta exata sem detalhe | `Api/HealthEndpointsTests` |
+| As rotas de saúde são os **únicos** endpoints anônimos novos e os únicos sem controller; só elas carregam o `HealthEndpointMarker` | `Api/OnlyHealthEndpointsAreAnonymousTests` |
+| O `Authorization` (válido ou inválido) é ignorado **só** em `/health/*` (zero consultas de sessão e catálogo) e um endpoint protegido segue aceitando token válido e recusando inválido | `Api/HealthEndpointsTests` (`Authorization_enviado_a_saude…`, `Controle_…`, `Endpoint_protegido_segue…`) |
 
 Para um endpoint novo: acrescente-o ao `EndpointCatalog` (com o acesso certo); as teorias de autorização passam a
 cobri-lo e o `EndpointCoverageTests` deixa de falhar.

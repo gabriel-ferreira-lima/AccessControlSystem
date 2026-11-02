@@ -162,6 +162,12 @@ Se preferir usar HTTP (`http://localhost:5290`), defina
 | GET    | `/v1/account/get-me`                       | Dados atuais da própria conta (somente leitura) |
 | PUT    | `/v1/account/deactivate/{id}`              | Desativa um operador (exclusão lógica)         |
 | PUT    | `/v1/account/activate/{id}`                | Reativa um operador                            |
+| GET    | `/health/live`                             | **Anônimo; fora do console** (o nginx só encaminha `/v1/`); o front não usa. `200 Healthy` enquanto o processo atende |
+| GET    | `/health/ready`                            | **Anônimo; fora do console**; o front não usa. `200 Healthy` com o catálogo acessível, `503 Unhealthy` sem ele |
+
+As duas rotas `/health/*` são verificações de saúde para quem opera a Api (balanceador, deploy,
+`curl`): ficam fora de `v1/`, não passam pelo nginx do console, aceitam só `GET` e `HEAD`, ignoram o
+cabeçalho `Authorization` e respondem só `Healthy` ou `Unhealthy`, sem nenhum detalhe interno.
 
 `create`, `update`, `get-list`, `deactivate` e `activate` só respondem a token de
 perfil `Admin`; um token de operador recebe 403. O console apenas oculta essas

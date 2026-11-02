@@ -1,5 +1,6 @@
 ﻿using AccessControlSystem.Api.Filters;
 using AccessControlSystem.Api.Handlers;
+using AccessControlSystem.Api.Health;
 using AccessControlSystem.Api.Options;
 using AccessControlSystem.Application.SharedContext.Tenancy;
 using AccessControlSystem.Application.SharedContext.UseCases;
@@ -88,9 +89,15 @@ namespace AccessControlSystem.Api.Extensions {
                     };
                     x.Events = new JwtBearerEvents {
                         OnMessageReceived = context => {
+                            var endpoint = context.HttpContext.GetEndpoint();
+
                             // O login é anônimo e resolve o tenant padrão por conta própria: um token enviado a
                             // ele é ignorado (nem validado), seja qual for o tenant ou o estado dele.
-                            if (context.HttpContext.GetEndpoint()?.Metadata.GetMetadata<UseDefaultLoginTenantAttribute>() is not null) {
+                            // O mesmo vale para as duas rotas de saúde (e SÓ para elas, por metadado do endpoint,
+                            // nunca por prefixo de caminho): um token válido faria a validação consultar catálogo e
+                            // sessão, e a verificação "viva" deixaria de não depender de nada.
+                            if (endpoint?.Metadata.GetMetadata<UseDefaultLoginTenantAttribute>() is not null
+                                || endpoint?.Metadata.GetMetadata<HealthEndpointMarker>() is not null) {
                                 context.NoResult();
                             }
 
@@ -232,6 +239,16 @@ namespace AccessControlSystem.Api.Extensions {
                         new ErrorResponse("Muitas tentativas. Tente novamente em instantes.", 429), ct);
                 };
             });
+        }
+
+        public static void AddHealth(this WebApplicationBuilder builder) {
+            // A sonda é escopada (usa o CatalogDbContext da requisição); o verificador é singleton porque guarda o
+            // resultado em cache por instância (e só um booleano e um instante, nunca dado de tenant).
+            builder.Services.TryAddSingleton(TimeProvider.System);
+            builder.Services.AddScoped<ICatalogProbe, CatalogDbProbe>();
+            builder.Services.AddSingleton<CatalogReadinessHealthCheck>();
+            builder.Services.AddHealthChecks()
+                .AddCheck<CatalogReadinessHealthCheck>(HealthEndpointExtensions.CatalogCheckName);
         }
 
         public static void AddForwardedHeaders(this WebApplicationBuilder builder) {

@@ -13,7 +13,14 @@ não entram no `EndpointCatalog` nem no Swagger.
 | `/health/live` | `GET`, `HEAD` | anônima (`AllowAnonymous`) | só que o processo atende; **nenhuma** consulta a banco, catálogo ou recurso externo |
 | `/health/ready` | `GET`, `HEAD` | anônima (`AllowAnonymous`) | o **catálogo**: alcança, credencial vale e o esquema existe; **bases de tenant não entram**; Redis ainda não (spec 06) |
 
-Outros métodos (`POST`, `PUT`, `DELETE`...) respondem `405`.
+Outros métodos (`POST`, `PUT`, `DELETE`...) **nunca executam a verificação**: caem no endpoint de rejeição
+do roteamento (`405`), que **não é anônimo**. Por isso, **sem token**, a política de fallback da Api
+(fechada por padrão) o transforma em `401`, como em qualquer outra rota da Api chamada com o método
+errado; **com token válido** responde `405`. Nos dois casos nenhuma consulta é feita e nada de saúde é
+devolvido (provado em `HealthEndpointsTests`). *(Ajuste feito na implementação: o desenho inicial
+dizia só `405`; manter o `405` sem token exigiria um middleware novo que mudaria o comportamento das
+demais rotas.)* No `HEAD` o servidor real (Kestrel) suprime o corpo; o `TestServer` não, por isso o
+teste afirma só o `200` e o `Cache-Control`.
 
 ## Respostas
 

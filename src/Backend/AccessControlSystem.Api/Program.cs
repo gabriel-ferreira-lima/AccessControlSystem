@@ -1,4 +1,5 @@
 using AccessControlSystem.Api.Extensions;
+using AccessControlSystem.Api.Health;
 using Microsoft.OpenApi;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -11,6 +12,7 @@ builder.AddControllersConfiguration();
 builder.AddErrorHandling();
 builder.AddCorsConfiguration();
 builder.AddRateLimiting();
+builder.AddHealth();
 builder.AddForwardedHeaders();
 
 // A documentação interativa só existe em Development (Princípio IX): fora dele não há nem o gerador nem as rotas.
@@ -46,6 +48,8 @@ app.Use(async (context, next) => {
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+// As duas verificações de saúde (anônimas, fora de v1/): ver HealthEndpointExtensions.
+app.MapHealthEndpoints();
 if (app.Environment.IsDevelopment()) {
     // A documentação é anônima, mas só existe em Development (a política de fallback fecharia as rotas dela).
     app.MapSwagger().AllowAnonymous();
