@@ -60,7 +60,10 @@ da claim `tenant` do token).
   `migrate` e depois `seed-dev`; com argumento roda só o verbo informado.
 - **Frontend** (`src/Frontend/Dockerfile`): build multi-stage (Node → nginx). O Vite é compilado
   com `VITE_API_BASE_URL=/`, então as requisições vão para a mesma origem; o nginx
-  (`src/Frontend/nginx.conf`) encaminha `/v1/` para o container `backend`.
+  (`src/Frontend/nginx.conf`) encaminha `/v1/` para o container `backend` e entrega o console com cabeçalhos de
+  segurança (CSP sem `unsafe-inline`, `X-Frame-Options`, `nosniff`, `Referrer-Policy`, `Permissions-Policy`) e
+  HSTS só quando o acesso chega com `X-Forwarded-Proto: https` (ver `src/Frontend/README.md`, "Cabeçalhos de
+  segurança do console").
 - **Postgres**: dados persistidos no volume `pg-data`.
 
 ### Segurança da autenticação e da sessão

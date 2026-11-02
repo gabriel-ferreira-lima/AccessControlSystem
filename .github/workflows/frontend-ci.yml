@@ -44,3 +44,6 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - name: Verify security headers
+        run: bash scripts/verify-security-headers.sh

@@ -84,6 +84,40 @@ rede com MSW**, devolvendo o envelope real (`message`, `status`, `isSuccess`, `n
 O CI (`.github/workflows/frontend-ci.yml`) roda `npm ci`, `npm run typecheck`, `npm test` e
 `npm run build` em todo pull request que altere `src/Frontend/` ou o próprio workflow.
 
+## Cabeçalhos de segurança do console
+
+Em Docker, o nginx (`nginx.conf`) entrega o console com os cabeçalhos definidos em
+`security-headers.conf` (copiado pelo `Dockerfile` para `/etc/nginx/snippets/`). Contrato completo:
+`specs/20261102-125831-security-perimeter/contracts/security-headers.md`.
+
+| Cabeçalho | Valor |
+| --- | --- |
+| `Content-Security-Policy` | só o próprio console; `script-src` com o hash do script do tema (sem `unsafe-inline`); `frame-ancestors 'none'`; `object-src 'none'` |
+| `X-Frame-Options` | `DENY` |
+| `X-Content-Type-Options` | `nosniff` |
+| `Referrer-Policy` | `no-referrer` |
+| `Permissions-Policy` | câmera, microfone, localização, pagamento e USB desligados |
+| `Strict-Transport-Security` | `max-age=31536000`, **só** quando a requisição chega com `X-Forwarded-Proto: https` (load balancer); ausente em HTTP simples, como no ambiente local |
+
+**Como recalcular o hash do script do tema.** O `index.html` tem um único `<script>` escrito na página (aplica
+o tema antes do primeiro desenho). A CSP o libera pelo hash do conteúdo. Se o script mudar, rode `npm test`: o
+teste `src/lib/security-headers.test.ts` falha e a mensagem traz o `'sha256-...'` correto; cole-o no
+`script-src` do `security-headers.conf`. O hash é do texto com quebras de linha em LF (o navegador normaliza
+CRLF antes de calcular, e o checkout no Windows deixa o arquivo em CRLF).
+
+**Regras de manutenção do `nginx.conf`:**
+
+1. Todo `location` que declara `add_header` próprio deve repetir o `include` do trecho (o nginx não herda
+   `add_header` do `server` quando o `location` tem algum).
+2. Todo `add_header` de segurança leva `always` (senão 404 e 5xx saem sem o cabeçalho).
+3. Cabeçalho novo que a Api também possa enviar entra na lista de `proxy_hide_header` do `/v1/`.
+
+**Verificação real** (a mesma do CI): `bash scripts/verify-security-headers.sh` constrói a imagem do console,
+sobe-a ao lado de um upstream simulado (`scripts/headers-check/`, alias `backend`) e confere, sem e com
+`X-Forwarded-Proto: https`, a página, um arquivo estático, um 404 e uma rota encaminhada. Precisa de Docker,
+`curl` e `openssl` (Git Bash no Windows serve). O tema claro/escuro e a ausência de erros de CSP no console do
+navegador são conferidos à mão (quickstart da spec, seção 3).
+
 ## Integração com o backend
 
 ### CORS
