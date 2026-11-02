@@ -1,4 +1,5 @@
 ﻿using AccessControlSystem.Application.SharedContext.UseCases.Contracts;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace AccessControlSystem.Api.Extensions {
     public static class UseCasesExtensions {
@@ -29,6 +30,17 @@ namespace AccessControlSystem.Api.Extensions {
             builder.Services.AddSingleton<
                 Application.Context.AccountContext.UseCases.Authenticate.Contracts.IPasswordVerifier,
                 Infrastructure.Context.AccountContext.UseCases.Authenticate.PasswordVerifier>();
+
+            // Limite de login por conta, em memória da instância (violação temporária dos Princípios I e XIII; a spec 06
+            // troca por Redis no mesmo contrato). Singleton: o registro tem de ser um só por instância.
+            builder.Services.AddSingleton<
+                Application.Context.AccountContext.UseCases.Authenticate.Contracts.ILoginThrottle,
+                Infrastructure.Context.AccountContext.UseCases.Authenticate.InMemoryLoginThrottle>();
+            builder.Services.TryAddSingleton(TimeProvider.System);
+            builder.Services.AddOptions<Infrastructure.Context.AccountContext.UseCases.Authenticate.LoginThrottleOptions>()
+                .BindConfiguration(Infrastructure.Context.AccountContext.UseCases.Authenticate.LoginThrottleOptions.SectionName)
+                .ValidateDataAnnotations()
+                .ValidateOnStart();
 
             builder.Services.AddScoped<
                 IHandler<

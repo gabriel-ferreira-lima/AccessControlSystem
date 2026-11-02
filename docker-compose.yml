@@ -32,6 +32,9 @@ x-backend-environment: &backend-environment
   ForwardedHeaders__KnownProxies__0: "172.31.250.10"
   # Limite de login por origem. Padrão 20 por minuto; só mude para a medição do quickstart (faixa 1 a 1000) e volte.
   LoginProtection__Ip__PermitLimit: ${LOGIN_IP_PERMIT_LIMIT:-20}
+  # Limite de login por conta: tentativas por nível até bloquear (padrão 5). Só mude para a medição do quickstart
+  # (faixa 3 a 100) e volte.
+  LoginProtection__Account__MaxFailures: ${LOGIN_MAX_FAILURES:-5}
 
 x-backend: &backend
   build:

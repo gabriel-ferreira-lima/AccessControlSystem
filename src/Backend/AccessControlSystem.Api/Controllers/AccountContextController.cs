@@ -21,10 +21,11 @@ namespace AccessControlSystem.Api.Controllers {
         /// <response code="200">Login efetuado, token devolvido.</response>
         /// <response code="400">E-mail em formato inválido.</response>
         /// <response code="401">Credenciais inválidas ou conta desativada.</response>
-        /// <response code="429">Muitas tentativas de login para este IP.</response>
+        /// <response code="429">Muitas tentativas de login para esta origem (IP) ou para esta conta (tenant + e-mail); o cabeçalho Retry-After informa a espera em segundos.</response>
         [AllowAnonymous]
         [UseDefaultLoginTenant]
         [EnableRateLimiting("login")]
+        [RetryAfterHeader]
         [HttpPost("login")]
         public async Task<IActionResult> Login(
             [FromBody] Application.Context.AccountContext.UseCases.Authenticate.Request request,

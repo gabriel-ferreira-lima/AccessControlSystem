@@ -1,8 +1,10 @@
 using System.Collections.Concurrent;
 using System.Net;
+using AccessControlSystem.Application.Context.AccountContext.UseCases.Authenticate.Contracts;
 using AccessControlSystem.Application.SharedContext.Tenancy;
 using AccessControlSystem.Infrastructure.Catalog.Models;
 using AccessControlSystem.Tests.Infrastructure.Fixtures;
+using AccessControlSystem.Tests.Support;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -66,6 +68,33 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
     private string _environment = "Testing";
     private bool _openProbe;
     private IPAddress? _remoteIp;
+    private readonly List<Action<IServiceCollection>> _serviceOverrides = new();
+
+    /// <summary>
+    /// Substitui o serviço <typeparamref name="TService"/> da Api por esta instância. Só vale antes de a Api subir.
+    /// Permite, por exemplo, que duas Apis (dois tenants padrão) compartilhem o MESMO limitador de login.
+    /// </summary>
+    public ApiFactory WithSingleton<TService>(TService instance) where TService : class
+    {
+        _serviceOverrides.Add(services => services.AddSingleton(instance));
+        return this;
+    }
+
+    /// <summary>
+    /// Troca o relógio da Api (<see cref="TimeProvider"/>) por um relógio falso, para testar bloqueio e espera sem
+    /// esperar de verdade. O relógio falso começa no instante real, então a validade de tokens não é afetada.
+    /// </summary>
+    public ApiFactory WithFakeTime(FakeTimeProvider fake) => WithSingleton<TimeProvider>(fake);
+
+    /// <summary>Conta as verificações de hash do login (delegando ao verificador real). Ver <see cref="PasswordVerifications"/>.</summary>
+    public ApiFactory WithCountingPasswordVerifier()
+    {
+        PasswordVerifications = new CountingPasswordVerifier();
+        return WithSingleton<IPasswordVerifier>(PasswordVerifications);
+    }
+
+    /// <summary>O contador instalado por <see cref="WithCountingPasswordVerifier"/>; <c>null</c> se não foi pedido.</summary>
+    public CountingPasswordVerifier? PasswordVerifications { get; private set; }
 
     /// <summary>
     /// Define o endereço remoto da conexão (<c>Connection.RemoteIpAddress</c>) ANTES de <c>UseForwardedHeaders</c>:
@@ -121,6 +150,15 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
         builder.UseEnvironment(_environment);
         builder.ConfigureAppConfiguration((_, configuration) => configuration.AddInMemoryCollection(_settings));
         builder.ConfigureLogging(logging => logging.AddProvider(new CapturingLoggerProvider(_logs)));
+
+        if (_serviceOverrides.Count > 0)
+        {
+            var overrides = _serviceOverrides.ToArray();
+            builder.ConfigureTestServices(services =>
+            {
+                foreach (var apply in overrides) apply(services);
+            });
+        }
 
         if (_remoteIp is not null)
         {
