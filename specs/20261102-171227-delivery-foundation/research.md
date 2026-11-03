@@ -196,6 +196,8 @@ fica pendente e **bloqueia o aceite**; isso é o comportamento seguro.
 exato de `needs.<job>.result` quando um job que chama reusable workflow é cancelado ou estoura o
 tempo. A documentação lista os quatro valores possíveis mas não diz qual aparece em cada caso; o
 gate trata tudo que não seja `success` como reprovação, então a regra vale seja qual for.
+**Confirmado em 2026-11-03** (T066, caso 5): com o run cancelado no meio do `backend`, o `ci-gate` (com `if: always()`)
+ainda rodou e recebeu `needs.backend.result` = `cancelled`, reprovando o gate. O estouro de tempo não foi exercitado.
 
 ## R-03 — Detecção de áreas (`scripts/ci/detect-areas.sh`)
 

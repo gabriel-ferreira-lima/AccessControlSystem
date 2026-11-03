@@ -115,15 +115,23 @@ Para provar que a proteção funciona de verdade (SC-001): envio direto, envio f
 2. **Antes de qualquer ensaio, anote o SHA da `main`**: `git fetch origin && git rev-parse origin/main`, e confira o mesmo SHA no
    GitHub. Ele recria a branch se um ensaio de exclusão a apagasse.
 3. **Envio direto** com a conta do dono, com um commit trivial e desfazível: `git push origin HEAD:main` → deve ser **recusado**.
-4. **Envio forçado**, com um commit cujo efeito recoloca a `main` no SHA anotado se for aceito:
-   `git push --force-with-lease origin <commit>:main` → deve ser **recusado**.
+4. **Envio forçado**, voltando a `main` um commit (reescreve o histórico, por isso é forçado):
+   `git push --force origin origin/main~1:main` → deve ser **recusado**. Se fosse aceito, a `main` volta ao SHA anotado
+   com `git push origin <SHA>:main`.
 5. **Exclusão**: `git push origin :main` → deve ser **recusada**. Se algo passasse, recrie a branch pelo SHA anotado:
    `gh api repos/{dono}/{repo}/git/refs -f ref=refs/heads/main -f sha=<SHA>`.
 6. Registre o resultado e a data na tabela abaixo.
 
 | Ensaio | Resultado | Data |
 |---|---|---|
-| (a preencher pelo dono depois de aplicar as proteções) | | |
+| Gate no GitHub real, antes do ruleset (7 casos: só documentos, só frontend, só backend, teste quebrado, cancelada, fora das áreas, fork) | aprovou/reprovou como esperado em 6; fork **não exercitado** (sem fork de teste; coberto pelo `CiWorkflowsConfigTests`). Cancelada: `needs.backend.result` = `cancelled` → REPROVADO | 2026-11-03 |
+| Auditoria com pacote vulnerável (`Newtonsoft.Json` 12.0.3, por `workflow_dispatch` numa branch descartável) | `backend-audit` falhou com `NU1903`; o e-mail de falha chegou | 2026-11-03 |
+| Aplicação (`apply-protections.sh`) e conferência à mão (`check-protections-manual.sh`) | ruleset criado; conferência automática com as 4 regras `ok`; à mão, 5 `OK` (varredura já estava ligada) | 2026-11-03 |
+| Conferência automática real (`protections-check`) e `package-audit` disparados à mão na `main` | os dois verdes: o `GITHUB_TOKEN` lê as regras, inclusive o `integration_id` 15368 | 2026-11-03 |
+| Envio direto (`git push origin HEAD:main`) | **recusado** (GH013: exige pull request e o `ci-gate`) | 2026-11-03 |
+| Envio forçado (`git push --force origin origin/main~1:main`) | **recusado** (GH013: "Cannot force-push to this branch") | 2026-11-03 |
+| Exclusão (`git push origin :main`) | **recusada** ("refusing to delete the current branch": a `main` é a branch padrão, o que barra antes da regra `deletion`; a regra aparece ativa na conferência automática) | 2026-11-03 |
+| Conferência automática falhando com o ruleset desligado (opcional) | não executado | |
 
 ## Se o repositório voltar a ser privado
 
