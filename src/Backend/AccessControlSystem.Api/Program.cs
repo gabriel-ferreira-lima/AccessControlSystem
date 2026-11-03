@@ -62,3 +62,5 @@ app.Run();
 
 // Necessário para o WebApplicationFactory<Program> dos testes (o Program de nível superior é internal).
 public partial class Program { }
+
+// T066 caso 3: só backend
