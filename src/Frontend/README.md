@@ -81,8 +81,11 @@ rede com MSW**, devolvendo o envelope real (`message`, `status`, `isSuccess`, `n
    (`getByRole`, `getByLabelText`, `getByText`), nunca por classe CSS ou estrutura do DOM.
 5. Implemente o mínimo para passar (Green) e refatore.
 
-O CI (`.github/workflows/frontend-ci.yml`) roda `npm ci`, `npm run typecheck`, `npm test` e
-`npm run build` em todo pull request que altere `src/Frontend/` ou o próprio workflow.
+O CI (`.github/workflows/frontend-ci.yml`) roda `npm ci`, `npm audit`, `npm run typecheck`, `npm test`,
+`npm run build` e a verificação dos cabeçalhos de segurança. Ele é **chamado pelo `ci-gate.yml`** (reusable workflow) e só
+roda quando o frontend, ou algo **fora das áreas conhecidas** (como `.github/`, `docker/` e `scripts/`), muda; um pull
+request só de documentos o dispensa. Quem exige (ou dispensa) a verificação é o `ci-gate`, o único check exigido para
+aceitar um pull request na `main`.
 
 ## Cabeçalhos de segurança do console
 

@@ -24,7 +24,9 @@ Architecture/          NoStaticTenantStateTests   (nenhum estado estático com d
                        CiWorkflowsConfigTests     (gatilhos sem paths, permissions, timeout, sem segredo nem ação de terceiros,
                                                    nomes do ci-gate e do k6 curto)
                        RepositoryProtectionsConfigTests (corpo do ruleset main-ruleset.json, inclusive o integration_id do Actions;
-                                                   a Fase D acrescenta os scripts de aplicação e o guia)
+                                                   apply-protections.sh e check-protections-manual.sh rodando com o gh FALSO: ordem de
+                                                   ativação, integration_id, dry-run sem escrita, idempotência, --disable e --enable;
+                                                   e as seções do guia docs/protecoes-do-repositorio.md)
 Infrastructure/
   Fixtures/            PostgresContainerFixture, PostgresRoleBootstrap, DatabaseProbe,
                        AppRoleProbe (sonda de privilégios de um papel), CanaryRole (papel descartável)
@@ -48,7 +50,9 @@ Api/                   TokenService, validação do JWT e do tenant, login padr�
                        token ignorado) e OnlyHealthEndpointsAreAnonymousTests (únicos anônimos e sem controller)
 Support/               FakeTimeProvider (relógio falso para os testes do limite de login);
                        BashLocator e ScriptShell (rodam scripts de shell com a raiz do repositório como diretório de trabalho;
-                       as pastas temporárias ficam em obj/script-tests/, ignorado pelo git)
+                       as pastas temporárias ficam em obj/script-tests/, ignorado pelo git);
+                       FakeGh (um gh FALSO, passado em GH_BIN: registra cada chamada e o corpo enviado por --input - e devolve
+                       respostas enlatadas; NUNCA fala com o GitHub)
 ```
 
 **Papéis-canário** (`Infrastructure/Fixtures/CanaryRole`): papéis de banco pertencem ao cluster inteiro, não ao banco

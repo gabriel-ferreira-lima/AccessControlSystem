@@ -140,10 +140,19 @@ enviaria, sem nunca escrever) é do dono, no passo 2 do V-07.
 
 Esperado: corpo do ruleset válido (`bypass_actors` vazio, as 4 regras, os 5 parâmetros do
 `pull_request`, `strict` falso, `context` = `ci-gate` **com `integration_id` 15368**);
-`check-rules.sh` aprova a resposta completa e reprova as 10 variações simuladas (contrato, inclusive
+`check-rules.sh` aprova a resposta completa e reprova as variações simuladas (contrato, inclusive
 **check com o nome certo sem `integration_id`** e **com `integration_id` de outro app**); os scripts
-em LF com `set -euo pipefail`; o guia tem todas as seções exigidas (inclusive "rode no Git Bash").
-Nenhum teste toca o GitHub real.
+em LF com `set -euo pipefail`; o guia tem as dez seções exigidas (inclusive "rode no Git Bash").
+Com o **`gh` falso**, o `apply-protections.sh`: no `--dry-run` **não escreve nada** (nenhum `POST`,
+`PUT` ou `PATCH`) e mostra o corpo; **para sem escrever** se o check `ci-gate` não existe na `main`
+(ordem de ativação) ou se ele vem de um aplicativo de `integration_id` diferente do exigido;
+**cria** o ruleset com **um** `POST` do `main-ruleset.json` se ele não existe e **atualiza** com
+**um** `PUT` no mesmo id se existe (nunca cria dois); liga a varredura de segredos só se estiver
+desligada, com **um** `PATCH` seguido de **releitura** (e falha com o passo manual da interface se o
+`PATCH` for recusado); `--disable` e `--enable` enviam **só** o `enforcement`. O
+`check-protections-manual.sh` reprova `bypass_actors` não vazio, `current_user_can_bypass` diferente
+de `never`, `enforcement` diferente de `active`, varredura ou proteção de envio desligadas e a falta
+do bloco `security_and_analysis` (sem permissão de administrador). Nenhum teste toca o GitHub real.
 
 ## V-06a e V-06b Validação do revisor **antes do merge** (no GitHub real)
 
