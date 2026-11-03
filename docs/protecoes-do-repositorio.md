@@ -131,7 +131,7 @@ Para provar que a proteção funciona de verdade (SC-001): envio direto, envio f
 | Envio direto (`git push origin HEAD:main`) | **recusado** (GH013: exige pull request e o `ci-gate`) | 2026-11-03 |
 | Envio forçado (`git push --force origin origin/main~1:main`) | **recusado** (GH013: "Cannot force-push to this branch") | 2026-11-03 |
 | Exclusão (`git push origin :main`) | **recusada** ("refusing to delete the current branch": a `main` é a branch padrão, o que barra antes da regra `deletion`; a regra aparece ativa na conferência automática) | 2026-11-03 |
-| Conferência automática falhando com o ruleset desligado (opcional) | não executado | |
+| Conferência automática falhando com o ruleset desligado (opcional; `--disable` por cerca de 2 min) | `protections-check` **falhou** com as 4 regras como `falta:`; o e-mail de falha chegou; religado com `--enable` e a conferência à mão voltou a 5 `OK` | 2026-11-03 |
 
 ## Se o repositório voltar a ser privado
 

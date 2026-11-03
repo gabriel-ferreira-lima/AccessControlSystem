@@ -1,6 +1,16 @@
+using AccessControlSystem.Application.SharedContext.Tenancy;
+using AccessControlSystem.Infrastructure.Catalog.Models;
+using AccessControlSystem.Infrastructure.Data;
+using AccessControlSystem.Infrastructure.Tenancy.Options;
 using AccessControlSystem.Migrator;
+using AccessControlSystem.Migrator.Commands;
+using AccessControlSystem.Migrator.Options;
 using AccessControlSystem.Migrator.Orchestration;
 using AccessControlSystem.Tests.Infrastructure.Fixtures;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
+using NSubstitute;
 using Npgsql;
 
 namespace AccessControlSystem.Tests.Migrator;
@@ -238,6 +248,121 @@ public class VerifyNoSeedAdminCommandTests
         Assert.Equal(ExitCodes.FixedAdminFound, code);
         Assert.Contains(dirty, output.ToString());
         Assert.Contains(unreachable, output.ToString());
+    }
+
+    #endregion
+
+    #region 7a. Catálogo inacessível (T073)
+
+    /// <summary>Registro cuja 1ª página volta normal e cuja 2ª página falha: o catálogo "cai" no meio da leitura das bases.</summary>
+    private sealed class FailingSecondPageRegistry : CatalogRegistry
+    {
+        private readonly CatalogDatabase _first;
+
+        public FailingSecondPageRegistry(DbContextOptions<CatalogDbContext> options, CatalogDatabase first) : base(options) => _first = first;
+
+        public override Task<IReadOnlyList<CatalogDatabase>> ListPageAsync(
+            Guid? afterId, int size, CancellationToken cancellationToken = default)
+        {
+            if (afterId is null) return Task.FromResult<IReadOnlyList<CatalogDatabase>>([_first]);
+
+            // A mensagem leva de propósito um trecho de connection string: nada disto pode chegar à saída.
+            throw new NpgsqlException("Host=segredo;Password=x: o catálogo caiu");
+        }
+    }
+
+    /// <summary>
+    /// Roda o comando direto (sem o host do Migrator), com um registro cuja 2ª página falha. O catálogo real (isolado e
+    /// limpo) continua respondendo à varredura de tabelas; só a LISTA das bases é que falha. Uma base existe só na
+    /// configuração: se a etapa de divergência rodasse, ela seria acusada como "não cadastrada" sem ser verdade.
+    /// </summary>
+    private async Task<(int Code, string Output, string OnlyInConfiguration)> RunWithFailingListingAsync(
+        DatabaseConnectionStrings listedDatabase, string listedName)
+    {
+        var catalog = await _fixture.CreateIsolatedCatalogAsync();
+        var onlyInConfiguration = NewName("so_na_config");
+        var otherDatabase = await _fixture.CreateMigratedTenantDatabaseAsync(NewName("vm_h"));
+
+        var databases = new TenantDatabasesOptions
+        {
+            [listedName] = new TenantDatabaseOptions { ConnectionString = listedDatabase.App, MigrationConnectionString = listedDatabase.Migrator },
+            [onlyInConfiguration] = new TenantDatabaseOptions { ConnectionString = otherDatabase.App, MigrationConnectionString = otherDatabase.Migrator },
+        };
+
+        var environment = Substitute.For<IHostEnvironment>();
+        environment.EnvironmentName.Returns("Staging");
+
+        var registry = new FailingSecondPageRegistry(
+            PostgresContainerFixture.CatalogOptions(catalog.Migrator),
+            new CatalogDatabase { Id = Guid.NewGuid(), Name = listedName, Kind = EDatabaseKind.Shared, CreatedAt = DateTime.UtcNow });
+
+        var output = new StringWriter();
+        var command = new VerifyNoSeedAdminCommand(
+            environment, registry,
+            Options.Create(new CatalogMigrationOptions { CatalogMigration = catalog.Migrator }),
+            Options.Create(databases),
+            Options.Create(new MigratorOptions { BatchSize = 1 }),   // 1 base por página: a 2ª página é pedida e falha
+            output);
+
+        var code = await command.ExecuteAsync();
+        return (code, output.ToString(), onlyInConfiguration);
+    }
+
+    [Fact]
+    public async Task Catalogo_inacessivel_sai_com_8_sem_acusar_falsa_divergencia_e_sem_connection_string()
+    {
+        var environment = await NewEnvironmentAsync();
+        var configured = NewName("configurada");
+        StagingTestSupport.ConfigureDatabase(environment.Settings, configured,
+            await _fixture.CreateMigratedTenantDatabaseAsync(NewName("vm_g")));   // existe e responde, mas o catálogo não lista nada
+        environment.Settings["ConnectionStrings:CatalogMigration"] = ClosedPort;
+        var output = new StringWriter();
+
+        var code = await StagingTestSupport.RunAsync(Verb, environment.Settings, output);
+
+        var text = output.ToString();
+        Assert.Equal(ExitCodes.CannotVerify, code);
+        Assert.Contains("catalog: não foi possível verificar", text);
+        Assert.Contains("REPROVADO", text);
+        Assert.DoesNotContain("Erro inesperado", text);
+        Assert.DoesNotContain("não cadastrada no catálogo", text);   // sem a lista, "registered" fica incompleto: nada de divergência
+        Assert.DoesNotContain(configured, text);
+        AssertSaidaSemDadoSensivel(text);
+    }
+
+    [Fact]
+    public async Task Falha_na_lista_do_catalogo_no_meio_da_leitura_sai_com_8_e_conta_as_bases_ja_verificadas()
+    {
+        var listed = NewName("lida_limpa");
+
+        var (code, text, onlyInConfiguration) = await RunWithFailingListingAsync(
+            await _fixture.CreateMigratedTenantDatabaseAsync(NewName("vm_i")), listed);
+
+        Assert.Equal(ExitCodes.CannotVerify, code);
+        Assert.Contains("Bases de tenant verificadas antes da falha: 1", text);
+        Assert.Contains("catalog: não foi possível verificar", text);
+        Assert.Contains("REPROVADO", text);
+        Assert.DoesNotContain("não cadastrada no catálogo", text);
+        Assert.DoesNotContain(onlyInConfiguration, text);
+        Assert.DoesNotContain("o catálogo caiu", text);   // a mensagem da exceção nunca vai à saída
+        AssertSaidaSemDadoSensivel(text);
+    }
+
+    [Fact]
+    public async Task Falha_na_lista_do_catalogo_com_base_contaminada_ja_verificada_sai_com_7_e_lista_as_duas_coisas()
+    {
+        var dirty = NewName("lida_suja");
+
+        var (code, text, onlyInConfiguration) = await RunWithFailingListingAsync(
+            await StagingTestSupport.ContaminatedDatabaseAsync(_fixture, NewName("vc_f")), dirty);
+
+        Assert.Equal(ExitCodes.FixedAdminFound, code);   // 7 vence o 8
+        Assert.Contains($"{dirty}: contém o administrador fixo", text);
+        Assert.Contains("catalog: não foi possível verificar", text);
+        Assert.DoesNotContain("não cadastrada no catálogo", text);
+        Assert.DoesNotContain(onlyInConfiguration, text);
+        Assert.DoesNotContain("o catálogo caiu", text);
+        AssertSaidaSemDadoSensivel(text);
     }
 
     #endregion

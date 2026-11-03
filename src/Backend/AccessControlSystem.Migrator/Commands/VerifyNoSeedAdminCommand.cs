@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using AccessControlSystem.Infrastructure.Catalog.Models;
 using AccessControlSystem.Infrastructure.Tenancy.Options;
 using AccessControlSystem.Migrator.Options;
 using AccessControlSystem.Migrator.Orchestration;
@@ -18,7 +19,9 @@ namespace AccessControlSystem.Migrator.Commands {
     /// (<c>Migrator:MaxDegreeOfParallelism</c>); uma base com erro não interrompe as outras. A saída traz a contagem e,
     /// nas falhas, o NOME LÓGICO da base e um motivo curto: nunca connection string, e-mail, identificador de operador
     /// nem senha. Códigos: 0 aprovou; 6 recusado em Development; 7 achou o administrador fixo; 8 não conseguiu
-    /// verificar (base inacessível, ou catálogo e configuração divergem). Com 7 e 8 juntos, sai 7 e lista os dois.
+    /// verificar (base ou catálogo inacessível, lista das bases ilegível, ou catálogo e configuração divergem). Com 7 e 8
+    /// juntos, sai 7 e lista os dois. Se a lista das bases falhar, o catálogo conta como não verificado, as bases já
+    /// verificadas ficam no relatório e a divergência com a configuração NÃO é conferida (a lista estaria incompleta).
     /// </remarks>
     public class VerifyNoSeedAdminCommand {
 
@@ -71,9 +74,22 @@ namespace AccessControlSystem.Migrator.Commands {
             var catalog = await verifier.CheckCatalogAsync(_catalogConnectionString, cancellationToken);
 
             // 2. Todas as bases cadastradas no catálogo, em lotes paginados por chave e com concorrência limitada.
+            // Se a LISTA das bases falhar (catálogo fora do ar, antes ou no meio da paginação), não se aprova nada: o
+            // catálogo conta como não verificado e as bases já verificadas continuam no relatório.
+            DatabaseVerification? listingFailure = null;
             Guid? after = null;
             while (true) {
-                var page = await _registry.ListPageAsync(after, _options.BatchSize, cancellationToken);
+                IReadOnlyList<CatalogDatabase> page;
+
+                try {
+                    page = await _registry.ListPageAsync(after, _options.BatchSize, cancellationToken);
+                }
+                catch (Exception exception) when (exception is not OperationCanceledException) {
+                    // Só o TIPO da exceção: a mensagem poderia trazer servidor, porta ou connection string.
+                    listingFailure = new DatabaseVerification(FixedAdminVerifier.CatalogName, DatabaseVerdict.Unverifiable,
+                        $"a lista das bases cadastradas não pôde ser lida ({exception.GetType().Name})");
+                    break;
+                }
 
                 if (page.Count == 0) {
                     break;
@@ -98,18 +114,21 @@ namespace AccessControlSystem.Migrator.Commands {
                 }
             }
 
-            // 3. Divergência: configurada, mas ausente do catálogo. Não dá para dizer que o ambiente está limpo.
-            foreach (var (name, entry) in _databases) {
-                var configured = !string.IsNullOrWhiteSpace(entry.MigrationConnectionString)
-                    || !string.IsNullOrWhiteSpace(entry.ConnectionString);
+            // 3. Divergência: configurada, mas ausente do catálogo. Não dá para dizer que o ambiente está limpo. Só roda com a
+            // lista COMPLETA: se a leitura falhou, "registered" está incompleto e acusaria falsamente toda base configurada.
+            if (listingFailure is null) {
+                foreach (var (name, entry) in _databases) {
+                    var configured = !string.IsNullOrWhiteSpace(entry.MigrationConnectionString)
+                        || !string.IsNullOrWhiteSpace(entry.ConnectionString);
 
-                if (configured && !registered.Contains(name)) {
-                    results.Add(new DatabaseVerification(name, DatabaseVerdict.Unverifiable,
-                        "configurada em TenantDatabases, mas não cadastrada no catálogo"));
+                    if (configured && !registered.Contains(name)) {
+                        results.Add(new DatabaseVerification(name, DatabaseVerdict.Unverifiable,
+                            "configurada em TenantDatabases, mas não cadastrada no catálogo"));
+                    }
                 }
             }
 
-            return Report(catalog, results.OrderBy(x => x.Name, StringComparer.Ordinal).ToList(), registered.Count);
+            return Report(catalog, results.OrderBy(x => x.Name, StringComparer.Ordinal).ToList(), registered.Count, listingFailure);
         }
 
         private async Task<DatabaseVerification> CheckAsync(FixedAdminVerifier verifier, string name, CancellationToken cancellationToken) {
@@ -122,13 +141,28 @@ namespace AccessControlSystem.Migrator.Commands {
             return await verifier.CheckTenantDatabaseAsync(name, entry.MigrationConnectionString, cancellationToken);
         }
 
-        private int Report(DatabaseVerification catalog, IReadOnlyList<DatabaseVerification> tenants, int registeredCount) {
+        private int Report(
+            DatabaseVerification catalog, IReadOnlyList<DatabaseVerification> tenants, int registeredCount,
+            DatabaseVerification? listingFailure) {
             var all = tenants.Append(catalog).ToList();
+
+            // A falha da lista vira UMA linha do catálogo: se ele já saiu como não verificado, essa linha basta.
+            if (listingFailure is not null && catalog.Verdict != DatabaseVerdict.Unverifiable) {
+                all.Add(listingFailure);
+            }
+
             var contaminated = all.Where(x => x.Verdict == DatabaseVerdict.Contaminated).ToList();
             var unverifiable = all.Where(x => x.Verdict == DatabaseVerdict.Unverifiable).ToList();
 
             var verified = tenants.Count(x => x.Verdict != DatabaseVerdict.Unverifiable);
-            _output.WriteLine($"Bases de tenant verificadas: {verified} de {registeredCount}. Catálogo: {Describe(catalog)}.");
+            if (listingFailure is null) {
+                _output.WriteLine($"Bases de tenant verificadas: {verified} de {registeredCount}. Catálogo: {Describe(catalog)}.");
+            }
+            else {
+                // Sem a lista não existe o "de N": só se conta o que chegou a ser verificado antes da falha.
+                var catalogState = catalog.Verdict == DatabaseVerdict.Contaminated ? Describe(catalog) : "não verificado";
+                _output.WriteLine($"Bases de tenant verificadas antes da falha: {verified}. Catálogo: {catalogState}.");
+            }
 
             foreach (var item in contaminated) {
                 _output.WriteLine($"  - {item.Name}: contém o administrador fixo ({item.Reason})");
