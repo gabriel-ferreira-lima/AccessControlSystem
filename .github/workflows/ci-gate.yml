@@ -1,0 +1,114 @@
+name: CI Gate
+
+# O GATE DE CI: o job final `ci-gate` é o ÚNICO check exigido pelo ruleset da `main` (scripts/github/protections/main-ruleset.json).
+# Roda em TODO pull request para a `main` e em todo push na `main` (a verificação pós-merge), SEM filtro de caminhos, e
+# decide quais verificações a mudança exige: chama o backend e o frontend (reusable workflows) só nas áreas aplicáveis.
+#
+# As DUAS ARMADILHAS que este desenho fecha (specs/20261102-171227-delivery-foundation/research.md, R-02):
+#   1. Check exigido que NUNCA roda: se o workflow tivesse filtro de `paths`, um pull request fora dos caminhos ficaria
+#      "aguardando" para sempre. Este não tem `paths`; quem decide o que se aplica é o job `changes`.
+#   2. Check "skipped" que o GitHub conta como verde: um job pulado NÃO reprova um check exigido. Por isso o job final
+#      confere o resultado real de cada verificação (scripts/ci/evaluate-gate.sh) e só aceita `success` ou a dispensa
+#      explícita de uma área que comprovadamente não mudou. Falha, cancelamento, tempo esgotado, skipped sem dispensa e
+#      ausência de resultado reprovam.
+#
+# ATENÇÃO: o ruleset exige este job PELO NOME (`ci-gate`, preso ao aplicativo GitHub Actions). RENOMEAR o job `ci-gate`
+# DERRUBA A EXIGÊNCIA sem aviso. A conferência semanal (protections-check.yml) e o CiWorkflowsConfigTests acusam a troca.
+# O passo k6 curto fica reservado como "não ativado" até a spec 06 criar os cenários de carga.
+#
+# Sem `workflow_dispatch` de propósito: uma execução manual não satisfaz um check exigido.
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-gate-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    outputs:
+      backend: ${{ steps.areas.outputs.backend }}
+      frontend: ${{ steps.areas.outputs.frontend }}
+      docs_only: ${{ steps.areas.outputs.docs_only }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          # Pull request: o commit de merge e o pai dele (2). Push na main: o histórico todo, para cobrir um merge que
+          # traga vários commits.
+          fetch-depth: ${{ github.event_name == 'pull_request' && 2 || 0 }}
+
+      - name: Detect changed areas
+        id: areas
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BEFORE_SHA: ${{ github.event.before }}
+          AFTER_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          changed="$RUNNER_TEMP/changed-files.txt"
+
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            # O checkout do pull request é o commit de merge: HEAD^1 é a main, então o diff é o que o PR leva para ela.
+            git -c core.quotepath=false diff --name-only HEAD^1 HEAD > "$changed"
+          elif [ "$BEFORE_SHA" = "0000000000000000000000000000000000000000" ]; then
+            # Sem commit anterior: lista vazia, que o detect-areas.sh trata como "tudo aplicável".
+            : > "$changed"
+          else
+            git -c core.quotepath=false diff --name-only "$BEFORE_SHA" "$AFTER_SHA" > "$changed"
+          fi
+
+          # Se o git diff falhar, o passo falha, o job falha e o gate REPROVA: nunca "passa sem olhar".
+          bash scripts/ci/detect-areas.sh < "$changed" | tee -a "$GITHUB_OUTPUT"
+
+  backend:
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+    uses: ./.github/workflows/backend-ci.yml
+
+  frontend:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    uses: ./.github/workflows/frontend-ci.yml
+
+  k6-short:
+    # O texto abaixo é o que a lista de checks do pull request mostra: o "(não ativado)" impede que o ✓ pareça uma aprovação.
+    # O `needs` do gate usa o ID do job (k6-short), nunca este texto: a spec 06 o troca para "k6 curto" sem mexer no script.
+    name: k6 curto (não ativado)
+    needs: changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Report that the short k6 step is not active
+        run: |
+          echo "Passo k6 curto: **NÃO ATIVADO** (cenários de carga: spec 06)" >> "$GITHUB_STEP_SUMMARY"
+
+  ci-gate:
+    name: ci-gate
+    needs: [changes, backend, frontend, k6-short]
+    # Sem isto o GitHub pularia este job quando uma dependência falha, e um check pulado conta como verde.
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Evaluate the gate
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+          AREA_BACKEND: ${{ needs.changes.outputs.backend }}
+          AREA_FRONTEND: ${{ needs.changes.outputs.frontend }}
+          AREA_DOCS_ONLY: ${{ needs.changes.outputs.docs_only }}
+        run: bash scripts/ci/evaluate-gate.sh

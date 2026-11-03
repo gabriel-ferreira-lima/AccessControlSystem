@@ -1,0 +1,43 @@
+name: Protections Check
+
+# CONFERÊNCIA AUTOMÁTICA das proteções da `main` (toda segunda-feira e sob demanda): lê as regras ativas da branch e falha,
+# avisando o dono pelo e-mail padrão do GitHub, se faltar pull request obrigatório, o check `ci-gate` (pelo nome E pela
+# origem, o aplicativo GitHub Actions), a proteção contra envio forçado ou contra exclusão. É a rede de segurança de
+# "renomeei o job e a exigência caiu em silêncio" e de "alguém desligou o ruleset".
+#
+# SEMPRE AUTENTICADA, nunca anônima: o limite de chamadas sem autenticação (60 por hora) vale por endereço IP e os runners
+# compartilham IPs; o do token da execução é de 1.000 por hora por repositório. O token é o `github.token` da própria
+# execução (somente leitura, sem segredo guardado). A documentação lista este endpoint sob "Metadata: read" mas não afirma
+# que o token SEMPRE a tem: a PRIMEIRA EXECUÇÃO REAL (do dono, quickstart V-07) é a prova. Se vier 403, o passo FALHA:
+# não conseguir ler as regras nunca é aprovar.
+#
+# O que o endpoint NÃO mostra (quem pode furar as regras; se a varredura de segredos está ligada) é conferido À MÃO pelo
+# dono (scripts/github/check-protections-manual.sh). Se o repositório voltar a ser privado, esta conferência precisa ser
+# reavaliada. Roda só em agenda e sob demanda, nunca por pull request.
+
+on:
+  schedule:
+    - cron: '41 9 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Read the active rules of main
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api -H "X-GitHub-Api-Version: 2022-11-28" "repos/${{ github.repository }}/rules/branches/main?per_page=100" > "$RUNNER_TEMP/rules.json"
+
+      - name: Check the rules
+        run: bash scripts/github/check-rules.sh < "$RUNNER_TEMP/rules.json"

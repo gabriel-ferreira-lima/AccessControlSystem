@@ -81,8 +81,11 @@ rede com MSW**, devolvendo o envelope real (`message`, `status`, `isSuccess`, `n
    (`getByRole`, `getByLabelText`, `getByText`), nunca por classe CSS ou estrutura do DOM.
 5. Implemente o mínimo para passar (Green) e refatore.
 
-O CI (`.github/workflows/frontend-ci.yml`) roda `npm ci`, `npm run typecheck`, `npm test` e
-`npm run build` em todo pull request que altere `src/Frontend/` ou o próprio workflow.
+O CI (`.github/workflows/frontend-ci.yml`) roda `npm ci`, `npm audit`, `npm run typecheck`, `npm test`,
+`npm run build` e a verificação dos cabeçalhos de segurança. Ele é **chamado pelo `ci-gate.yml`** (reusable workflow) e só
+roda quando o frontend, ou algo **fora das áreas conhecidas** (como `.github/`, `docker/` e `scripts/`), muda; um pull
+request só de documentos o dispensa. Quem exige (ou dispensa) a verificação é o `ci-gate`, o único check exigido para
+aceitar um pull request na `main`.
 
 ## Cabeçalhos de segurança do console
 
@@ -162,6 +165,12 @@ Se preferir usar HTTP (`http://localhost:5290`), defina
 | GET    | `/v1/account/get-me`                       | Dados atuais da própria conta (somente leitura) |
 | PUT    | `/v1/account/deactivate/{id}`              | Desativa um operador (exclusão lógica)         |
 | PUT    | `/v1/account/activate/{id}`                | Reativa um operador                            |
+| GET    | `/health/live`                             | **Anônimo; fora do console** (o nginx só encaminha `/v1/`); o front não usa. `200 Healthy` enquanto o processo atende |
+| GET    | `/health/ready`                            | **Anônimo; fora do console**; o front não usa. `200 Healthy` com o catálogo acessível, `503 Unhealthy` sem ele |
+
+As duas rotas `/health/*` são verificações de saúde para quem opera a Api (balanceador, deploy,
+`curl`): ficam fora de `v1/`, não passam pelo nginx do console, aceitam só `GET` e `HEAD`, ignoram o
+cabeçalho `Authorization` e respondem só `Healthy` ou `Unhealthy`, sem nenhum detalhe interno.
 
 `create`, `update`, `get-list`, `deactivate` e `activate` só respondem a token de
 perfil `Admin`; um token de operador recebe 403. O console apenas oculta essas

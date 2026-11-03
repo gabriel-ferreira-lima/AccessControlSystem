@@ -1,22 +1,19 @@
 name: Frontend CI
 
+# Chamado pelo ci-gate.yml (workflow_call), que decide quando o frontend é exigido. Não tem filtro de caminhos nem roda por
+# conta própria em push ou pull request: o gate sempre roda e é quem exige (ou dispensa) esta verificação.
+# O workflow_dispatch só serve para depurar este arquivo isolado.
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'src/Frontend/**'
-      - '.github/workflows/frontend-ci.yml'
-  pull_request:
-    branches:
-      - main
-    paths:
-      - 'src/Frontend/**'
-      - '.github/workflows/frontend-ci.yml'
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   frontend-build-and-test:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     defaults:
       run:

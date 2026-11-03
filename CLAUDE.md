@@ -44,7 +44,20 @@ docker compose up --build
 # Migrator (na raiz, via Docker): único caminho que aplica migrations
 docker compose run --rm migrator migrate     # atualiza o catálogo e todas as bases de tenant
 docker compose run --rm migrator seed-dev    # tenants e operadores sintéticos (só em Development)
+
+# Migrator, verbos de homologação (DOTNET_ENVIRONMENT=Staging; nunca contra o banco do compose de desenvolvimento)
+# seed-staging           tenants e operadores FICTÍCIOS; senhas só por StagingSeed__* (variável de ambiente); recusado fora de Staging (código 5)
+# verify-no-seed-admin   só leitura; reprova (7) se algum banco tiver o administrador fixo da migration SeedAdmin; 6 recusa Development; 8 não conseguiu verificar
+
+# Proteção da main (o DONO roda, com o gh autenticado; no Windows, NO GIT BASH, não no PowerShell nem no bash do WSL)
+bash scripts/github/apply-protections.sh --dry-run   # lê o estado e mostra o que faria, sem escrever
+bash scripts/github/check-protections-manual.sh      # conferência à mão: bypass e varredura de segredos
 ```
+
+A API expõe `/health/live` e `/health/ready` (anônimas, só pelo contêiner da Api, fora do console). O **único check
+exigido** para aceitar um pull request na `main` é o `ci-gate`; a configuração, a conferência, a ordem de ativação, a
+emergência e os ensaios das proteções estão em [`docs/protecoes-do-repositorio.md`](docs/protecoes-do-repositorio.md). Agentes
+não rodam esses scripts contra o GitHub real: nos testes eles só usam o `gh` falso (`FakeGh`).
 
 **Migrations só pelo Migrator.** A Api não aplica migrations ao iniciar. Nunca rode
 `dotnet ef database update` (nem bundle, nem script de `dotnet ef migrations script`) numa base

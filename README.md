@@ -123,7 +123,41 @@ docker compose build backend                    # rebuild só do backend
 
 Em qualquer ambiente que não seja `Development`, o `seed-dev` é recusado (código de saída 3) sem
 escrever nada. Os códigos de saída do Migrator são `0` (ok), `1` (alguma base falhou), `2`
-(configuração inválida), `3` (`seed-dev` recusado) e `4` (a trava global esgotou o tempo).
+(configuração inválida), `3` (`seed-dev` recusado) e `4` (a trava global esgotou o tempo). Os verbos de
+homologação (abaixo) acrescentam `5` a `8`.
+
+### Base de entrega: homologação, saúde da Api e proteção da `main`
+
+- **`seed-staging`** (Migrator): cria os tenants e operadores **fictícios** de homologação. **Só roda com
+  `DOTNET_ENVIRONMENT=Staging`**; em qualquer outro ambiente (inclusive sem a variável) é recusado com código `5`, sem
+  escrever nada. É idempotente, registra as bases e os tenants no catálogo e atualiza a estrutura das bases (sem o
+  administrador fixo). As senhas vêm **só de fora do repositório**, por `StagingSeed__AdminPassword`,
+  `StagingSeed__OperatorPasswordTenantA` e `StagingSeed__OperatorPasswordTenantB` (variável de ambiente; na spec da nuvem,
+  Secrets Manager). **Nunca rode contra o banco do `docker compose` de desenvolvimento**: o `migrator` do compose roda em
+  `Development`, que o recusa.
+- **`verify-no-seed-admin`** (Migrator): confere o catálogo e **todas** as bases e reprova se alguma tiver o administrador
+  fixo da migration `SeedAdmin` (id fixo **ou** e-mail fixo, sem diferenciar maiúsculas). **Somente leitura**; recusado em
+  `Development` (código `6`). Códigos: `0` aprovou, `7` achou o administrador fixo, `8` não conseguiu verificar (base
+  inacessível, ou catálogo e configuração divergem).
+- **Saúde da Api**: `GET /health/live` (o processo atende; não consulta nada) e `GET /health/ready` (o catálogo responde; no
+  máximo 1 consulta a cada 5 s por instância). Anônimas, só `Healthy`/`Unhealthy`, **só pelo contêiner da Api** (o nginx do
+  console só encaminha `/v1/`, então ficam fora do console).
+- **`ci-gate`**: o **único** check exigido para aceitar um pull request na `main`. A configuração e a conferência das
+  proteções (ruleset, varredura de segredos, ordem de ativação, emergência, ensaios) estão em
+  [`docs/protecoes-do-repositorio.md`](docs/protecoes-do-repositorio.md). **No Windows, rode os scripts `bash scripts/...`
+  no Git Bash**, não no PowerShell nem no `bash` do WSL.
+
+Tenants fictícios de homologação (ids estáveis, para a configuração do ambiente referenciá-los; os CNPJs são inválidos de
+propósito; **nenhuma senha está neste arquivo**):
+
+| Tenant | Id | CNPJ sintético | Nome | Base | Tipo |
+|---|---|---|---|---|---|
+| A | `aaaaaaaa-0000-4000-8000-000000000001` | `99999999000101` | Tenant A (homologação) | `shared_01` | compartilhada |
+| B | `aaaaaaaa-0000-4000-8000-000000000002` | `99999999000102` | Tenant B (homologação) | `shared_01` | compartilhada |
+| D | `aaaaaaaa-0000-4000-8000-000000000003` | `99999999000103` | Tenant D (homologação) | `dedicated_01` | dedicada |
+
+Operadores: `admin@homologacao.test` (Admin, nos três tenants) e `operador@homologacao.test` (Operator, nos tenants A e B,
+com senhas diferentes). Todos os e-mails usam o domínio reservado `.test`; nenhum usa o e-mail do administrador fixo.
 
 ### Configuração
 

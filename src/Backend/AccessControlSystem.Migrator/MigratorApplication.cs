@@ -18,6 +18,18 @@ namespace AccessControlSystem.Migrator {
         public const int InvalidConfiguration = 2;
         public const int SeedDevRefused = 3;
         public const int LockTimeout = 4;
+
+        /// <summary><c>seed-staging</c> recusado: o ambiente não é Staging.</summary>
+        public const int SeedStagingRefused = 5;
+
+        /// <summary><c>verify-no-seed-admin</c> recusado: o ambiente é Development (o administrador fixo existe de propósito).</summary>
+        public const int VerifyRefusedInDevelopment = 6;
+
+        /// <summary><c>verify-no-seed-admin</c> reprovou: o administrador fixo da migration SeedAdmin foi encontrado.</summary>
+        public const int FixedAdminFound = 7;
+
+        /// <summary><c>verify-no-seed-admin</c> não conseguiu verificar (base inacessível, ou catálogo e configuração divergem).</summary>
+        public const int CannotVerify = 8;
     }
 
     /// <summary>
@@ -28,6 +40,10 @@ namespace AccessControlSystem.Migrator {
 
         public const string MigrateVerb = "migrate";
         public const string SeedDevVerb = "seed-dev";
+        public const string SeedStagingVerb = "seed-staging";
+        public const string VerifyNoSeedAdminVerb = "verify-no-seed-admin";
+
+        private static readonly string[] Verbs = [MigrateVerb, SeedDevVerb, SeedStagingVerb, VerifyNoSeedAdminVerb];
 
         /// <param name="configure">Permite aos testes injetar configuração (vem depois das variáveis de ambiente).</param>
         /// <param name="output">Onde o resumo e as mensagens saem (padrão: o console).</param>
@@ -39,8 +55,8 @@ namespace AccessControlSystem.Migrator {
 
             output ??= Console.Out;
 
-            if (args.Length != 1 || (args[0] != MigrateVerb && args[0] != SeedDevVerb)) {
-                output.WriteLine($"Uso: AccessControlSystem.Migrator {MigrateVerb} | {SeedDevVerb}");
+            if (args.Length != 1 || !Verbs.Contains(args[0])) {
+                output.WriteLine($"Uso: AccessControlSystem.Migrator {string.Join(" | ", Verbs)}");
                 return ExitCodes.InvalidConfiguration;
             }
 
@@ -58,6 +74,20 @@ namespace AccessControlSystem.Migrator {
             if (verb == SeedDevVerb && !string.Equals(environmentName, Environments.Development, StringComparison.OrdinalIgnoreCase)) {
                 output.WriteLine($"seed-dev recusado: o ambiente é '{environmentName}' e ele só roda em Development. Nada foi escrito.");
                 return ExitCodes.SeedDevRefused;
+            }
+
+            // O seed-staging só roda em Staging e também é recusado antes de qualquer outra coisa (nem a configuração
+            // é lida): sem DOTNET_ENVIRONMENT vale Production, que recusa.
+            if (verb == SeedStagingVerb && !string.Equals(environmentName, Environments.Staging, StringComparison.OrdinalIgnoreCase)) {
+                output.WriteLine(SeedStagingCommand.StagingRefusalMessage(environmentName));
+                return ExitCodes.SeedStagingRefused;
+            }
+
+            // A verificação do administrador fixo não se aplica a Development (ele existe de propósito lá) e é
+            // recusada antes de ler a configuração.
+            if (verb == VerifyNoSeedAdminVerb && string.Equals(environmentName, Environments.Development, StringComparison.OrdinalIgnoreCase)) {
+                output.WriteLine(VerifyNoSeedAdminCommand.DevelopmentRefusalMessage);
+                return ExitCodes.VerifyRefusedInDevelopment;
             }
 
             var builder = Host.CreateEmptyApplicationBuilder(new HostApplicationBuilderSettings {
@@ -82,9 +112,12 @@ namespace AccessControlSystem.Migrator {
             }
 
             try {
-                return verb == SeedDevVerb
-                    ? await host.Services.GetRequiredService<SeedDevCommand>().ExecuteAsync(cancellationToken)
-                    : await host.Services.GetRequiredService<MigrateCommand>().ExecuteAsync(cancellationToken);
+                return verb switch {
+                    SeedDevVerb => await host.Services.GetRequiredService<SeedDevCommand>().ExecuteAsync(cancellationToken),
+                    SeedStagingVerb => await host.Services.GetRequiredService<SeedStagingCommand>().ExecuteAsync(cancellationToken),
+                    VerifyNoSeedAdminVerb => await host.Services.GetRequiredService<VerifyNoSeedAdminCommand>().ExecuteAsync(cancellationToken),
+                    _ => await host.Services.GetRequiredService<MigrateCommand>().ExecuteAsync(cancellationToken)
+                };
             }
             catch (MigratorLockTimeoutException exception) {
                 output.WriteLine(exception.Message);
@@ -137,7 +170,22 @@ namespace AccessControlSystem.Migrator {
                     .BindConfiguration(DevSeedOptions.SectionName)
                     .ValidateDataAnnotations()
                     .ValidateOnStart();
+                services.AddSingleton<SyntheticTenantSeeder>();
                 services.AddSingleton<SeedDevCommand>();
+            }
+
+            if (verb == SeedStagingVerb) {
+                // As senhas de homologação só são exigidas por quem vai usá-las.
+                services.AddOptions<StagingSeedOptions>()
+                    .BindConfiguration(StagingSeedOptions.SectionName)
+                    .ValidateDataAnnotations()
+                    .ValidateOnStart();
+                services.AddSingleton<SyntheticTenantSeeder>();
+                services.AddSingleton<SeedStagingCommand>();
+            }
+
+            if (verb == VerifyNoSeedAdminVerb) {
+                services.AddSingleton<VerifyNoSeedAdminCommand>();
             }
         }
 
