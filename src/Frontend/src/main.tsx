@@ -14,3 +14,5 @@ createRoot(container).render(
     <App />
   </StrictMode>,
 );
+
+// T066 caso 2: só frontend
